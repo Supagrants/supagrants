@@ -3,11 +3,14 @@ Primary Author(s)
 Juan C. Dorado: https://github.com/jdorado/
 """
 
+import traceback
+
 import uvicorn
 from fastapi import FastAPI, Request
 from pydantic import BaseModel
-import traceback
+
 import config
+from chat import router as agent
 from utils import telegram
 from utils.mongo_aio import Mongo
 from utils.pagerduty import sendAlert
@@ -59,12 +62,9 @@ async def mentor(request: Request):
         if params['has_reply']:
             text += f" REPLYING TO: {params['reply_text']}"
 
-        # todo
-        await telegram_reply(text)
-        return "ok"
-        # await agent.next_action(text, params['user'], mongo,
-        #                                reply_function=telegram_reply,
-        #                                processing_id=params['message_id'])
+        await agent.next_action(text, params['user'], mongo,
+                                reply_function=telegram_reply,
+                                processing_id=params['message_id'])
 
         return {"status": "ok"}
     except Exception as e:
@@ -74,4 +74,4 @@ async def mentor(request: Request):
 
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=6020, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=6010, reload=True)

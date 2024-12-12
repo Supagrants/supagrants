@@ -24,6 +24,8 @@ MONGO_PORT = int(os.getenv("MONGO_PORT", 27017))
 MONGO_CONNECTION = os.getenv("MONGO_CONNECTION", None)
 MONGO_DB = 'supagrants'
 
+POSTGRES_CONNECTION = os.getenv("POSTGRES_CONNECTION", "postgresql+psycopg://ai:ai@localhost:5532/ai")
+
 TELEGRAM_BOT = os.getenv("TELEGRAM_BOT", "")
 TELEGRAM_BOT_ID = os.getenv("TELEGRAM_BOT_ID", "")  # todo
 TELEGRAN_BOT_HANDLE = os.getenv("TELEGRAN_BOT_HANDLE", "@supgrantsBot")
@@ -31,3 +33,7 @@ TELEGRAN_BOT_HANDLE = os.getenv("TELEGRAN_BOT_HANDLE", "@supgrantsBot")
 # PagerDuty & Support
 PAGERDUTY_INACTIVE = os.getenv("PAGERDUTY_INACTIVE", 0)
 PAGERDUTY = os.getenv("PAGERDUTY", "")
+
+# AI
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+GROK_API_KEY = os.getenv("GROK_API_KEY", "")

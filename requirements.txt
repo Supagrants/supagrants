@@ -14,3 +14,9 @@ requests_oauthlib
 # telegram
 chatgpt-md-converter
 PyPDF2
+
+# phitdata
+phidata
+duckduckgo-search
+pgvector
+psycopg[binary]
