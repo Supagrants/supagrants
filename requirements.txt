@@ -10,3 +10,7 @@ pydantic
 openai
 anthropic
 requests_oauthlib
+
+# telegram
+chatgpt-md-converter
+PyPDF2
