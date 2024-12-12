@@ -1,0 +1,12 @@
+python-dotenv
+motor
+pytz
+pymongo[svr]
+dnspython
+aiohttp
+pydantic
+
+# agents_tasks service
+openai
+anthropic
+requests_oauthlib
