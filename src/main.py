@@ -58,7 +58,8 @@ async def mentor(request: Request):
 
         # handle document
         if params['file']:
-            output = await knowledge.handle_document(params['file'])
+            await knowledge.handle_document(params['file'])
+            text = f"SYSTEM: Document added to knowledge base {params['file']['file_name']}"
 
         await router.next_action(text, params['user'], mongo,
                                  reply_function=telegram_reply,
