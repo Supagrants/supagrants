@@ -10,13 +10,14 @@ from fastapi import FastAPI, Request
 from pydantic import BaseModel
 
 import config
-from chat import router as agent
-from utils import telegram
+from chat import router, knowledge
+from utils import telegram_helper
 from utils.mongo_aio import Mongo
 from utils.pagerduty import sendAlert
 
 app = FastAPI()
 mongo = Mongo()
+tg = telegram_helper.TelegramHelper(config.TELEGRAM_BOT)
 
 
 class TelegramUpdate(BaseModel):
@@ -39,32 +40,30 @@ async def mentor(request: Request):
     text = ''
     try:
         handle = config.TELEGRAN_BOT_HANDLE
-        update = await request.json()
-        params = await telegram.process_update(update, handle=handle)
+        json_data = await request.json()
+        params = await tg.process_update(json_data, handle=handle)
+        if not params:
+            return {"status": "ok"}
 
         async def telegram_reply(msg):
-            await telegram.send_message_to_telegram(config.TELEGRAM_BOT, params['chat_id'], msg)
+            await tg.send_message(params['chat_id'], msg)
 
         # ignore if message is from bot or no content
-        if not params or params['is_bot'] or not params['content']:
-            return
-
-        is_directed_to_bot = params['reply_user'] == handle.replace('@', '') or params['has_mention'] or params[
-            'chat_type'] == 'private'
-
-        # if is a reply to another user, skip
-        # NOTE: Telegram has a bug where replying to another user is not detected as a reply
-        is_replying_someone_else = params['has_reply'] and params['reply_user'] != handle.replace('@', '')
-        if is_replying_someone_else and not is_directed_to_bot:
+        if not params or params['is_bot'] or (not params['content'] and not params['file']):
             return
 
         text = f"@{params['username']}: {params['content']}"
         if params['has_reply']:
             text += f" REPLYING TO: {params['reply_text']}"
 
-        await agent.next_action(text, params['user'], mongo,
-                                reply_function=telegram_reply,
-                                processing_id=params['message_id'])
+        # handle document
+        if params['file']:
+            await knowledge.handle_document(params['file'])
+            text = f"SYSTEM: Document added to knowledge base {params['file']['file_name']}"
+
+        await router.next_action(text, params['user'], mongo,
+                                 reply_function=telegram_reply,
+                                 processing_id=params['message_id'])
 
         return {"status": "ok"}
     except Exception as e:
