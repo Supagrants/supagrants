@@ -22,3 +22,4 @@ pgvector
 psycopg[binary]
 pypdf
 sqlalchemy
+psycopg2
