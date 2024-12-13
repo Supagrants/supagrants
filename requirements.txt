@@ -21,3 +21,4 @@ duckduckgo-search
 pgvector
 psycopg[binary]
 pypdf
+sqlalchemy
