@@ -12,11 +12,12 @@ anthropic
 requests_oauthlib
 
 # telegram
+python-telegram-bot
 chatgpt-md-converter
-PyPDF2
 
 # phitdata
 phidata
 duckduckgo-search
 pgvector
 psycopg[binary]
+pypdf
