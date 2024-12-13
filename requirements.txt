@@ -5,6 +5,8 @@ pymongo[svr]
 dnspython
 aiohttp
 pydantic
+uvicorn
+fastapi
 
 # agents_tasks service
 openai
@@ -20,3 +22,7 @@ phidata
 duckduckgo-search
 pgvector
 psycopg[binary]
+
+# crawler
+crawl4ai
+firecrawl-py
