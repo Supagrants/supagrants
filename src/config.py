@@ -38,3 +38,7 @@ PAGERDUTY = os.getenv("PAGERDUTY", "")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 GROK_API_KEY = os.getenv("GROK_API_KEY", "")
 CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY", "")
+
+# Crawler
+FIRECRAWL_API_KEY = os.getenv("FIRECRAWL_API_KEY", "")
+GITHUB_ACCESS_TOKEN = os.getenv("GITHUB_ACCESS_TOKEN", "")

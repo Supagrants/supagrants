@@ -5,12 +5,9 @@ from phi.model.openai import OpenAIChat
 from phi.tools.firecrawl import FirecrawlTools
 from phi.tools.github import GithubTools
 
-from crawl4ai_tools import Crawl4aiTools  # phidata==2.7.2 broken (no AsyncWebCrawler support), crawl4i==0.4.21 broken (missing js_snippet)
+from .crawl4ai_tools import Crawl4aiTools  # phidata==2.7.2 broken (no AsyncWebCrawler support), crawl4i==0.4.21 broken (missing js_snippet)
 
-from config import OPENAI_API_KEY
-
-# export FIRECRAWL_API_KEY=***
-# export GITHUB_ACCESS_TOKEN=***
+from ..config import OPENAI_API_KEY, FIRECRAWL_API_KEY, GITHUB_ACCESS_TOKEN
 
 
 def crawl_url_crawl4ai(url: str) -> str:
@@ -64,7 +61,7 @@ def crawl_url_firecrawl(url: str) -> str:
     agent = Agent(
         name="Firecrawl Agent",
         model=OpenAIChat(id="gpt-4o", api_key=OPENAI_API_KEY),
-        tools=[FirecrawlTools(scrape=False, crawl=True)],
+        tools=[FirecrawlTools(api_key=FIRECRAWL_API_KEY, scrape=False, crawl=True)], 
         show_tool_calls=True,
         markdown=True,
     )
@@ -102,7 +99,7 @@ def crawl_github(repo: str) -> str:
             f"This is the GitHub repo {repo}.",
             "Do not create any issues or pull requests unless explicitly asked to do so",
         ],
-        tools=[GithubTools()],
+        tools=[GithubTools(access_token=GITHUB_ACCESS_TOKEN)],
         show_tool_calls=True,
     )
     response: RunResponse = agent.run(f"List all open issues")
