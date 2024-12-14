@@ -34,7 +34,6 @@ async def crawl_url_crawl4ai(url: str) -> str:
         
         response: RunResponse = agent.run(f"Run with the url only: {url}")
         response_dict = response.to_dict()
-        print(response_dict)
         messages = response_dict.get("messages", [])
         crawled_content = None
         
