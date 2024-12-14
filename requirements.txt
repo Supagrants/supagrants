@@ -27,5 +27,6 @@ sqlalchemy
 psycopg2
 
 # crawler
-crawl4ai
+crawl4ai==0.4.1
 firecrawl-py
+pygithub
