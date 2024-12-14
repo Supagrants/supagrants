@@ -4,10 +4,10 @@ import asyncio
 
 from phi.agent import Agent, RunResponse
 from phi.model.openai import OpenAIChat
-from phi.tools.firecrawl import FirecrawlTools
 from phi.tools.github import GithubTools
 
 from .crawl4ai_tools import Crawl4aiTools  # phidata==2.7.2 broken (no AsyncWebCrawler support), crawl4i==0.4.21 broken (missing js_snippet)
+from .firecrawl_tools import FirecrawlTools
 
 from ..config import OPENAI_API_KEY, FIRECRAWL_API_KEY, GITHUB_ACCESS_TOKEN
 
@@ -44,7 +44,7 @@ async def crawl_url_crawl4ai(url: str) -> str:
         
         return crawled_content
 
-    crawled_content = await asyncio.to_thread(_crawl)  # <--- Wrapped synchronous code to run asynchronously
+    crawled_content = await asyncio.to_thread(_crawl)
     return crawled_content
 
 
@@ -79,7 +79,7 @@ async def crawl_url_firecrawl(url: str) -> str:
         
         return crawled_content
 
-    crawled_content = await asyncio.to_thread(_crawl)  # <--- Wrapped synchronous code to run asynchronously
+    crawled_content = await asyncio.to_thread(_crawl)
     return crawled_content
 
 
@@ -117,8 +117,8 @@ if __name__ == "__main__":
     import asyncio
 
     async def main():
-        print(await crawl_url_crawl4ai("https://example.com/"))
-        # print(await crawl_url_firecrawl("https://example.com/"))
+        # print(await crawl_url_crawl4ai("https://docs.ithacaprotocol.io/docs"))
+        print(await crawl_url_firecrawl("https://docs.ithacaprotocol.io/docs"))
         # print(await crawl_github("phidatahq/phidata"))
 
     asyncio.run(main())

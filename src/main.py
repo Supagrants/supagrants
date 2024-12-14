@@ -64,7 +64,7 @@ async def mentor(request: Request):
 
         if len(params['urls']) > 0:
             for url in params['urls']:
-                crawled_content = await crawler.crawl_url_crawl4ai(url)
+                crawled_content = await crawler.crawl_url_firecrawl(url)
                 if crawled_content:
                     await knowledge.handle_url(url, crawled_content)
 
