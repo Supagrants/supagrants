@@ -12,7 +12,7 @@ async def next_action(msg: str, user_id: str, mongo, reply_function=None, proces
     agent = Agent(
         name="Chat Agent",
         model=OpenAIChat(id="gpt-4o", api_key=OPENAI_API_KEY),
-        session_id='main',
+        session_id='main',# todo replace with group / chat
         user_id=user_id,
         storage=PgAgentStorage(table_name="agent_sessions", db_url=POSTGRES_CONNECTION),
         num_history_responses=10,

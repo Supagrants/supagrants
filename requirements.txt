@@ -23,6 +23,8 @@ duckduckgo-search
 pgvector
 psycopg[binary]
 pypdf
+sqlalchemy
+psycopg2
 
 # crawler
 crawl4ai
