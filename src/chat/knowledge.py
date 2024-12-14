@@ -41,3 +41,15 @@ async def handle_document(file_info: dict):
         pdf_knowledge_base.load(recreate=False)
     # acknowledge receipt
     return
+
+
+async def handle_url(url: str, crawled_content: str):
+    """
+    Handle crawled URLs by adding their content to the TextKnowledgeBase in PostgreSQL.
+
+    Args:
+        url (str): The URL that was crawled.
+        crawled_content (str): The content retrieved from crawling the URL.
+    """
+    # todo
+    return

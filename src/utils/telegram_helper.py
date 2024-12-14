@@ -1,9 +1,11 @@
+import os
 from typing import Optional
+import re
+
 from telegram import Update
 from telegram import Bot
 from telegram.constants import ParseMode
 from chatgpt_md_converter import telegram_format
-import os
 
 
 class TelegramHelper:
@@ -38,6 +40,9 @@ class TelegramHelper:
 
             if handle and handle in content:
                 content = content.replace(handle, '').strip()
+
+            url_pattern = r'(https?://\S+)'
+            extracted_urls = re.findall(url_pattern, content)
 
             file_info = None
             if message.document:
@@ -88,7 +93,8 @@ class TelegramHelper:
                 "reply_text": message.reply_to_message.text if message.reply_to_message else '',
                 "reply_user": message.reply_to_message.from_user.username if message.reply_to_message else '',
                 "new_members": new_members,
-                "has_new_members": bool(new_members)
+                "has_new_members": bool(new_members),
+                "urls": extracted_urls,
             }
 
         except Exception as e:

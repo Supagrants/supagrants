@@ -4,13 +4,14 @@ Juan C. Dorado: https://github.com/jdorado/
 """
 
 import traceback
+import asyncio
 
 import uvicorn
 from fastapi import FastAPI, Request
 from pydantic import BaseModel
 
 import config
-from chat import router, knowledge
+from chat import router, knowledge, crawler
 from utils import telegram_helper
 from utils.mongo_aio import Mongo
 from utils.pagerduty import sendAlert
@@ -60,6 +61,15 @@ async def mentor(request: Request):
         if params['file']:
             await knowledge.handle_document(params['file'])
             text = f"SYSTEM: Document added to knowledge base {params['file']['file_name']}"
+
+        if len(params['urls']) > 0:
+            for url in params['urls']:
+                crawled_content = await crawler.crawl_url_crawl4ai(url)
+                if crawled_content:
+                    await knowledge.handle_url(url, crawled_content)
+
+            all_urls = ", ".join(params['urls'])
+            text = f"SYSTEM: URLs crawled and added to knowledge base {all_urls}"
 
         await router.next_action(text, params['user'], mongo,
                                  reply_function=telegram_reply,
