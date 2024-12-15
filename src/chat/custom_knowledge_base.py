@@ -1,8 +1,12 @@
 # custom_knowledge_base.py
 
+import logging
 from typing import List, Optional, Iterator, Dict, Any
 import json
 import asyncio
+from hashlib import md5
+import uuid
+import re
 
 from pydantic import BaseModel
 from phi.document import Document
@@ -14,6 +18,9 @@ from bs4 import BeautifulSoup
 from utils.llm_helper import get_embedder
 from utils.validation import is_valid_url
 from sqlalchemy import text
+
+# Define MAX_CHUNK_SIZE at the module level
+MAX_CHUNK_SIZE = 9000  # bytes
 
 class CustomKnowledgeBase(AgentKnowledge):
     """
@@ -30,6 +37,58 @@ class CustomKnowledgeBase(AgentKnowledge):
             logger.debug(f"Loading documents from {kb.__class__.__name__}")
             yield from kb.document_lists
 
+    def split_content_into_chunks(self, content: str, max_size: int) -> List[str]:
+        # Semantic chunking based on sentences
+        sentences = re.split(r'(?<=[.!?]) +', content)
+        chunks = []
+        current_chunk = ""
+        for sentence in sentences:
+            # Encode to bytes to accurately measure size
+            sentence_size = len(sentence.encode('utf-8'))
+            current_size = len(current_chunk.encode('utf-8'))
+            if current_size + sentence_size + 1 <= max_size:
+                current_chunk += " " + sentence if current_chunk else sentence
+            else:
+                if current_chunk:
+                    chunks.append(current_chunk)
+                # Start new chunk with the current sentence
+                if sentence_size <= max_size:
+                    current_chunk = sentence
+                else:
+                    # If single sentence exceeds max_size, split it
+                    split_sentences = [sentence[i:i+max_size] for i in range(0, len(sentence), max_size)]
+                    chunks.extend(split_sentences[:-1])
+                    current_chunk = split_sentences[-1]
+        if current_chunk:
+            chunks.append(current_chunk)
+        logger.info(f"Total chunks created: {len(chunks)}")
+        return chunks
+
+    def compute_content_hash(self, content: str) -> str:
+        """
+        Compute the MD5 hash of the content.
+
+        Args:
+            content (str): The content to hash.
+
+        Returns:
+            str: The MD5 hash of the content.
+        """
+        cleaned_content = self._clean_content(content)
+        return md5(cleaned_content.encode()).hexdigest()
+
+    def _clean_content(self, content: str) -> str:
+        """
+        Clean the content by replacing null characters.
+
+        Args:
+            content (str): The content to clean.
+
+        Returns:
+            str: The cleaned content.
+        """
+        return content.replace("\x00", "\ufffd")
+
     async def add_document(self, document: Dict[str, Any], document_type: Optional[str] = None):
         """
         Asynchronously add a document to the CombinedKnowledgeBase.
@@ -41,28 +100,99 @@ class CustomKnowledgeBase(AgentKnowledge):
         try:
             title = document.get("title", "")
             content = document.get("content", "")
-            meta_data = document.get("meta_data", {})  # Changed from 'metadata' to 'meta_data'
+            meta_data = document.get("meta_data", {})
             if document_type:
                 meta_data['document_type'] = document_type
 
-            # Create a Document instance
-            doc = Document(
-                id=None,  # Let PgVector handle ID generation if applicable
-                name=title,
-                content=content,
-                meta_data=meta_data,
-                embedder=self.vector_db.embedder  # Ensure embedder is set
-            )
+            # Split content into chunks using the module-level MAX_CHUNK_SIZE
+            chunks = self.split_content_into_chunks(content, MAX_CHUNK_SIZE)
+            if not chunks:
+                logger.error("No chunks were created from the content. Aborting insertion.")
+                return
+
+            # Create Document instances for each chunk
+            docs = []
+            base_content_hash = self.compute_content_hash(content)
+            for idx, chunk in enumerate(chunks):
+                chunk_id = f"{base_content_hash}_chunk_{idx}"  # Unique ID based on content hash and chunk index
+                chunk_meta_data = meta_data.copy()
+                chunk_meta_data['chunk'] = idx + 1
+                chunk_meta_data['total_chunks'] = len(chunks)
+                chunk_meta_data['usage'] = {
+                    "last_accessed": None,
+                    "access_count": 0
+                }  # Initialize usage data as needed
+
+                logger.debug(f"Generating embedding for chunk {idx} of document '{title}' with id '{chunk_id}'.")
+
+                # Manually generate embedding with retry logic
+                try:
+                    embedder = self.vector_db.embedder
+                    embedding = await self.get_embedding_with_retries(embedder, chunk)
+                    if not embedding:
+                        logger.error(f"Embedding not generated for chunk {idx} of document '{title}'. Skipping.")
+                        continue
+                    if len(embedding) != self.vector_db.dimensions:
+                        logger.error(f"Embedding dimension mismatch for chunk {idx} of document '{title}'. Expected {self.vector_db.dimensions}, got {len(embedding)}. Skipping.")
+                        continue
+                except Exception as e:
+                    logger.error(f"Exception during embedding generation for chunk {idx} of document '{title}': {e}. Skipping.")
+                    continue
+
+                # Create Document instance with the generated embedding
+                doc = Document(
+                    id=chunk_id,
+                    name=title,
+                    content=chunk,
+                    meta_data=chunk_meta_data,
+                    embedding=embedding  # Assign the generated embedding directly
+                )
+
+                docs.append(doc)
+
+            if not docs:
+                logger.error("No valid document chunks to insert after embedding generation.")
+                return
 
             # Run the synchronous insert method in an executor
             loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, self.vector_db.insert, [doc])
+            await loop.run_in_executor(None, self.vector_db.insert, docs)
 
-            logger.info(f"Indexed document in pgvector: {title}")
+            logger.info(f"Indexed {len(docs)} chunks of document in pgvector: {title}")
 
         except Exception as e:
             logger.error(f"Error indexing document '{document.get('title', '')}': {e}")
             raise e
+
+    async def get_embedding_with_retries(self, embedder, text, retries=3, delay=2):
+        """
+        Generate embeddings with retry logic.
+
+        Args:
+            embedder: The embedder instance.
+            text (str): The text to embed.
+            retries (int): Number of retry attempts.
+            delay (int): Initial delay between retries.
+
+        Returns:
+            List[float]: The generated embedding or None if failed.
+        """
+        for attempt in range(1, retries + 1):
+            try:
+                embedding = embedder.get_embedding(text)
+                if embedding:
+                    logger.debug(f"Embedding generated successfully on attempt {attempt}.")
+                    return embedding
+                else:
+                    logger.warning(f"Attempt {attempt}: Embedding returned None.")
+            except Exception as e:
+                logger.warning(f"Attempt {attempt} failed for embedding generation: {e}")
+            if attempt < retries:
+                logger.info(f"Retrying embedding generation after {delay} seconds...")
+                await asyncio.sleep(delay)
+                delay *= 2  # Exponential backoff
+        logger.error(f"All {retries} attempts failed for embedding generation.")
+        return None
 
     async def handle_url(self, url: str, crawled_content: Any):
         """
@@ -94,7 +224,7 @@ class CustomKnowledgeBase(AgentKnowledge):
             document = {
                 "title": metadata.get("title", url),
                 "content": crawled_content,
-                "meta_data": metadata  # Changed from 'metadata' to 'meta_data'
+                "meta_data": metadata
             }
             await self.add_document(document, document_type="url")
             logger.info(f"Indexed URL in pgvector: {url}")
