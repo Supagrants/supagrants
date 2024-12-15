@@ -1,11 +1,16 @@
+# telegram_helper.py
+
 import os
 from typing import Optional
 import re
+import logging
 
 from telegram import Update
 from telegram import Bot
 from telegram.constants import ParseMode
 from chatgpt_md_converter import telegram_format
+
+logger = logging.getLogger(__name__)
 
 
 class TelegramHelper:
@@ -98,5 +103,5 @@ class TelegramHelper:
             }
 
         except Exception as e:
-            print(f"Error processing update: {e}")
+            logger.error(f"Error processing update: {e}")
             return None

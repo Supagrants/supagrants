@@ -3,13 +3,13 @@
 import asyncio
 
 from phi.agent import Agent, RunResponse
-from phi.model.openai import OpenAIChat
 from phi.tools.github import GithubTools
 
 from .crawl4ai_tools import Crawl4aiTools  # phidata==2.7.2 broken (no AsyncWebCrawler support), crawl4i==0.4.21 broken (missing js_snippet)
 from .firecrawl_tools import FirecrawlTools
 
-from ..config import OPENAI_API_KEY, FIRECRAWL_API_KEY, GITHUB_ACCESS_TOKEN
+from config import OPENAI_API_KEY, FIRECRAWL_API_KEY, GITHUB_ACCESS_TOKEN
+from utils.llm_helper import get_llm_model
 
 
 
@@ -26,7 +26,7 @@ async def crawl_url_crawl4ai(url: str) -> str:
     def _crawl():
         agent = Agent(
             name="Crawl4ai Agent",
-            model=OpenAIChat(id="gpt-4o", api_key=OPENAI_API_KEY),
+            model=get_llm_model(),
             tools=[Crawl4aiTools(max_length=None)],
             show_tool_calls=True,
             markdown=True,
@@ -61,7 +61,7 @@ async def crawl_url_firecrawl(url: str) -> str:
     def _crawl():
         agent = Agent(
             name="Firecrawl Agent",
-            model=OpenAIChat(id="gpt-4o", api_key=OPENAI_API_KEY),
+            model=get_llm_model(),
             tools=[FirecrawlTools(api_key=FIRECRAWL_API_KEY, scrape=False, crawl=True)], 
             show_tool_calls=True,
             markdown=True,
@@ -96,7 +96,7 @@ async def crawl_github(repo: str) -> str:
     def _crawl():
         agent = Agent(
             name="GitHub Agent",
-            model=OpenAIChat(id="gpt-4o", api_key=OPENAI_API_KEY),
+            model=get_llm_model(),
             instructions=[
                 f"This is the GitHub repo {repo}.",
                 "Do not create any issues or pull requests unless explicitly asked to do so",

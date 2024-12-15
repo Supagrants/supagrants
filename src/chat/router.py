@@ -1,17 +1,19 @@
+# router.py
+
 from phi.agent import Agent, RunResponse
-from phi.model.openai import OpenAIChat
 from phi.storage.agent.postgres import PgAgentStorage
 from phi.tools.duckduckgo import DuckDuckGo
 
 from chat import prompts, knowledge
 from config import OPENAI_API_KEY
 from config import POSTGRES_CONNECTION
+from utils.llm_helper import get_llm_model
 
 
 async def next_action(msg: str, user_id: str, mongo, reply_function=None, processing_id=None):
     agent = Agent(
         name="Chat Agent",
-        model=OpenAIChat(id="gpt-4o", api_key=OPENAI_API_KEY),
+        model=get_llm_model(),
         session_id='main',# todo replace with group / chat
         user_id=user_id,
         storage=PgAgentStorage(table_name="agent_sessions", db_url=POSTGRES_CONNECTION),

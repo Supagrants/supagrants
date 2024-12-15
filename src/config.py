@@ -28,14 +28,16 @@ POSTGRES_CONNECTION = os.getenv("POSTGRES_CONNECTION", "postgresql+psycopg://ai:
 
 TELEGRAM_BOT = os.getenv("TELEGRAM_BOT", "")
 TELEGRAM_BOT_ID = os.getenv("TELEGRAM_BOT_ID", "")  # todo
-TELEGRAN_BOT_HANDLE = os.getenv("TELEGRAN_BOT_HANDLE", "@supgrantsBot")
+TELEGRAM_BOT_HANDLE = os.getenv("TELEGRAM_BOT_HANDLE", "@supgrantsBot")
 
 # PagerDuty & Support
 PAGERDUTY_INACTIVE = os.getenv("PAGERDUTY_INACTIVE", 0)
 PAGERDUTY = os.getenv("PAGERDUTY", "")
 
 # AI
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai").lower()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
 GROK_API_KEY = os.getenv("GROK_API_KEY", "")
 CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY", "")
 

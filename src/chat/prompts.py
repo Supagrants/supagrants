@@ -1,3 +1,5 @@
+# prompts.py
+
 ABOUT = f"""
 ABOUT
 You are Supagrants, an AI expert in grant applications for web3

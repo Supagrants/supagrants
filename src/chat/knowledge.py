@@ -1,55 +1,74 @@
+# knowledge.py
+
+from typing import List, Any
 from phi.knowledge.pdf import PDFUrlKnowledgeBase
-from phi.knowledge.text import TextKnowledgeBase
-from phi.knowledge.combined import CombinedKnowledgeBase
 from phi.vectordb.pgvector import PgVector
 from config import POSTGRES_CONNECTION
+from utils.llm_helper import get_embedder
+from utils.validation import is_valid_url
+from phi.utils.log import logger
 
+from .custom_knowledge_base import CustomKnowledgeBase  # Import the new class
+
+# Initialize a unified PgVector for all documents
+vector_db = PgVector(
+    table_name="documents",  # Unified table
+    db_url=POSTGRES_CONNECTION,
+    embedder=get_embedder(),
+)
+
+# Initialize PDF knowledge base with document_type
 pdf_knowledge_base = PDFUrlKnowledgeBase(
     urls=[],
-    # Table name: ai.pdf_documents
-    vector_db=PgVector(
-        table_name="pdf_documents",
-        db_url=POSTGRES_CONNECTION,
-    ),
+    vector_db=vector_db,
+    document_type="pdf"
 )
 
-# text_knowledge_base = TextKnowledgeBase(
-#     # Table name: ai.text_documents
-#     vector_db=PgVector(
-#         table_name="text_documents",
-#         db_url="postgresql+psycopg://ai:ai@localhost:5532/ai",
-#     ),
-# )
-
-knowledge_base = CombinedKnowledgeBase(
+# Initialize CustomKnowledgeBase
+knowledge_base = CustomKnowledgeBase(
     sources=[
         pdf_knowledge_base,
+        # Add other knowledge sources here if needed
     ],
-    vector_db=PgVector(
-        # Table name: ai.combined_documents
-        table_name="combined_documents",
-        db_url=POSTGRES_CONNECTION,
-    ),
+    vector_db=vector_db,
 )
 
+# Function to initialize all vector databases
+async def initialize_knowledge_base():
+    await vector_db.initialize()
 
 async def handle_document(file_info: dict):
-    # if type add to vector space
     if file_info['mime_type'] == 'application/pdf':
-        # blocking code
         pdf_knowledge_base.urls = [file_info['file_url']]
-        pdf_knowledge_base.load(recreate=False)
-    # acknowledge receipt
+        await pdf_knowledge_base.load(recreate=False)  # Ensure this is awaited
     return
 
+async def handle_url(url: str, crawled_content: Any):
+    if not is_valid_url(url):
+        logger.warning(f"Invalid URL format: {url}")
+        return
 
-async def handle_url(url: str, crawled_content: str):
-    """
-    Handle crawled URLs by adding their content to the TextKnowledgeBase in PostgreSQL.
+    try:
+        if await knowledge_base.is_duplicate(url):
+            logger.info(f"Duplicate URL detected, skipping: {url}")
+            return
 
-    Args:
-        url (str): The URL that was crawled.
-        crawled_content (str): The content retrieved from crawling the URL.
-    """
-    # todo
-    return
+        # Ensure crawled_content is a string
+        if isinstance(crawled_content, list):
+            crawled_content = ' '.join(crawled_content)
+            logger.debug(f"Joined crawled_content into string: {crawled_content}")
+
+        if not isinstance(crawled_content, str):
+            logger.error(f"crawled_content is not a string for URL {url}.")
+            return
+
+        metadata = await knowledge_base.extract_metadata(url, crawled_content)
+        document = {
+            "title": metadata.get("title", url),
+            "content": crawled_content,
+            "meta_data": metadata
+        }
+        await knowledge_base.add_document(document, document_type="url")
+        logger.info(f"Indexed URL in pgvector: {url}")
+    except Exception as e:
+        logger.error(f"Error indexing URL {url}: {e}")
