@@ -5,7 +5,7 @@ from phi.knowledge.pdf import PDFUrlKnowledgeBase
 from phi.vectordb.pgvector import PgVector
 from config import POSTGRES_CONNECTION
 from utils.llm_helper import get_embedder
-from utils.validation import is_valid_url
+from utils.url_helper import is_valid_url
 from phi.utils.log import logger
 
 from .custom_knowledge_base import CustomKnowledgeBase  # Import the new class

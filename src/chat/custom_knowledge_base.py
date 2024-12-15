@@ -16,7 +16,7 @@ from phi.utils.log import logger
 from bs4 import BeautifulSoup
 
 from utils.llm_helper import get_embedder
-from utils.validation import is_valid_url
+from utils.url_helper import is_valid_url
 from sqlalchemy import text
 
 # Define MAX_CHUNK_SIZE at the module level

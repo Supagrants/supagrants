@@ -1,4 +1,5 @@
 import re
+from urllib.parse import urlparse
 
 def is_valid_url(url: str) -> bool:
     """
@@ -19,3 +20,19 @@ def is_valid_url(url: str) -> bool:
         r'(/[\w./?%&=-]*)?$'  # Optional path
     )
     return re.match(url_regex, url) is not None
+
+def normalize_url(url: str) -> str:
+    """
+    Normalize URL to avoid duplication.
+
+    :param url: The URL to normalize.
+
+    :return: Normalized URL as string.
+    """
+    parsed = urlparse(url)
+    scheme = parsed.scheme.lower()
+    netloc = parsed.netloc.lower()
+    path = parsed.path or '/'
+    # Remove query parameters and fragments
+    normalized_url = f"{scheme}://{netloc}{path}"
+    return normalized_url

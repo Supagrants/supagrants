@@ -1,6 +1,7 @@
 # crawler.py
 
 import asyncio
+from typing import AsyncGenerator, Tuple
 
 from phi.agent import Agent, RunResponse
 from phi.tools.github import GithubTools
@@ -13,39 +14,25 @@ from utils.llm_helper import get_llm_model
 
 
 
-async def crawl_url_crawl4ai(url: str) -> str:
+async def crawl_url_crawl4ai(url: str) -> AsyncGenerator[Tuple[str, str], None]:
     """
-    Crawl the specified URL using the Crawl4ai Agent and retrieve the crawled content asynchronously.
+    Crawl the specified URL using Crawl4aiTools' async generator
+    and yield each crawled page's URL and content in real time.
 
-    Args:
-        url (str): The URL to be crawled.
+    :param url: The URL to crawl.
 
-    Returns:
-        str: The content retrieved from crawling the URL. Returns `None` if no content is found.
+    :yield: Tuples containing (URL, page content) as strings.
     """
-    def _crawl():
-        agent = Agent(
-            name="Crawl4ai Agent",
-            model=get_llm_model(),
-            tools=[Crawl4aiTools(max_length=None)],
-            show_tool_calls=True,
-            markdown=True,
-        )
-        
-        response: RunResponse = agent.run(f"Run with the url only: {url}")
-        response_dict = response.to_dict()
-        messages = response_dict.get("messages", [])
-        crawled_content = None
-        
-        for msg in messages:
-            if msg.get("role") == "tool":
-                crawled_content = msg.get("content")
-                break
-        
-        return crawled_content
+    if not url:
+        yield ("No URL provided", "")
+        return
 
-    crawled_content = await asyncio.to_thread(_crawl)
-    return crawled_content
+    # Create an instance of Crawl4aiTools
+    tools = Crawl4aiTools(max_length=None)
+
+    # Use the async generator from web_crawler
+    async for crawled_url, page_content in tools.web_crawler(url):
+        yield crawled_url, page_content
 
 
 async def crawl_url_firecrawl(url: str) -> str:

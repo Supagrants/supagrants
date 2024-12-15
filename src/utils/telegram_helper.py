@@ -1,40 +1,70 @@
-# telegram_helper.py
+# utils/telegram_helper.py
 
 import os
-from typing import Optional
 import re
 import logging
+from typing import Optional
+import asyncio
 
-from telegram import Update
-from telegram import Bot
+from telegram import Update, Bot
 from telegram.constants import ParseMode
 from chatgpt_md_converter import telegram_format
 
 logger = logging.getLogger(__name__)
 
-
 class TelegramHelper:
-    def __init__(self, bot_token: str, download_dir: str = "./files"):
-        self.bot = Bot(token=bot_token)
+    def __init__(self, bot: Bot, download_dir: str = "./files", rate_limit: int = 20):
+        """
+        Initialize TelegramHelper with an existing Bot instance.
+
+        Args:
+            bot (Bot): An instance of telegram.Bot configured with desired settings.
+            download_dir (str): Directory to download files. Defaults to "./files".
+            rate_limit (int): Maximum number of concurrent send_message operations.
+        """
+        self.bot = bot
         self.DOWNLOAD_DIR = download_dir
         if not os.path.exists(self.DOWNLOAD_DIR):
             os.makedirs(self.DOWNLOAD_DIR)
+        
+        # Initialize semaphore for rate limiting
+        self.rate_limiter = asyncio.Semaphore(rate_limit)
 
     async def send_message(self, chat_id: int, text: str) -> None:
-        """Send a message using the external telegram_format converter."""
+        """
+        Send a message using the external telegram_format converter with rate limiting.
+
+        Args:
+            chat_id (int): The chat ID to send the message to.
+            text (str): The message text.
+        """
         formatted_text = telegram_format(text)
-        await self.bot.send_message(
-            chat_id=chat_id,
-            text=formatted_text,
-            parse_mode=ParseMode.HTML
-        )
+        async with self.rate_limiter:
+            try:
+                await self.bot.send_message(
+                    chat_id=chat_id,
+                    text=formatted_text,
+                    parse_mode=ParseMode.HTML
+                )
+            except Exception as e:
+                logger.error(f"Failed to send message to chat {chat_id}: {e}")
+                raise
 
     async def process_update(
             self,
             update_data: dict,
             handle: str = ''
     ) -> Optional[dict]:
-        """Process a Telegram update and return structured data."""
+        """
+        Process a Telegram update and return structured data.
+
+        Args:
+            update_data (dict): The update data received from Telegram.
+            handle (str): Optional handle to filter messages.
+
+        Returns:
+            Optional[dict]: Structured data extracted from the update.
+        """
         try:
             update = Update.de_json(update_data, self.bot)
             message = update.effective_message
