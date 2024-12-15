@@ -1,4 +1,4 @@
--- database_schema.sql
+-- database_schema_openai.sql
 
 -- Create the table with the correct schema
 CREATE TABLE ai.documents (
