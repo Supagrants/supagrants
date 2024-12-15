@@ -74,7 +74,7 @@ async def mentor(request: Request):
                     await telegram_reply(f"URL already indexed: {url}")
                     continue
 
-                crawled_content = await crawler.crawl_url_firecrawl(url)
+                crawled_content = await crawler.crawl_url_crawl4ai(url)
 
                 # Ensure crawled_content is a string
                 if isinstance(crawled_content, list):
