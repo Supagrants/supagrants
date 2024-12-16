@@ -1,6 +1,7 @@
 """
 Primary Author(s)
 Juan C. Dorado: https://github.com/jdorado/
+Ben Lai: https://github.com/laichunpongben/
 """
 # main.py
 
@@ -10,7 +11,7 @@ import logging
 from contextlib import asynccontextmanager
 
 import uvicorn
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, BackgroundTasks
 from pydantic import BaseModel
 
 from telegram.ext import Application
@@ -23,7 +24,7 @@ from utils.pagerduty import sendAlert
 from utils.url_helper import normalize_url
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)  # Configure logging as needed
+logging.basicConfig(level=logging.INFO)
 
 # Initialize Application with increased connection pool size
 application = (
@@ -79,7 +80,7 @@ async def tasks_post():
     # await tasks.run(mongo)
 
 @app.post("/agent/")
-async def mentor(request: Request):
+async def mentor(request: Request, background_tasks: BackgroundTasks):
     text = ''
     try:
         handle = config.TELEGRAM_BOT_HANDLE
@@ -107,46 +108,59 @@ async def mentor(request: Request):
         # Handle URLs
         if params.get('urls'):
             logger.debug(f"Processing URLs: {params['urls']}")
-            for url in params['urls']:
-                normalized_url = normalize_url(url)
-                if await knowledge.knowledge_base.is_duplicate(normalized_url):
-                    await telegram_reply(f"URL already indexed: {url}")
-                    continue
 
-                # Start crawling and processing pages as they are yielded
+            # Initialize the crawler tool once
+            crawl_tool = crawler.Crawl4aiTools()
+
+            # Define check_duplicate and index_page outside the loop
+            async def check_duplicate(url: str) -> bool:
+                return await knowledge.knowledge_base.is_duplicate(url)
+
+            async def index_page(url: str, content: str):
+                await knowledge.handle_url(url, content)
+
+            async def crawl_and_process(url: str):
+                page_count = 0
+
                 try:
-                    # Initialize page count
-                    page_count = 0
-                    batch_size = 10  # Number of pages after which to send a Telegram message
+                    # Create an asynchronous generator for crawling
+                    crawl_generator = crawl_tool.web_crawler(
+                        start_url=url,
+                        is_duplicate=check_duplicate,
+                        on_page_crawled=index_page,
+                        max_length=crawl_tool.max_length,
+                        max_depth=crawl_tool.max_depth,
+                        max_pages=crawl_tool.max_pages,
+                    )
 
-                    # Iterate over the asynchronous generator
-                    async for crawled_url, page_content in crawler.crawl_url_crawl4ai(url):
+                    # Iterate over the crawled pages
+                    async for crawled_url, page_content in crawl_generator:
                         # Validate page content
                         if not isinstance(page_content, str):
-                            logger.error(f"Page {page_count + 1} for URL {crawled_url} is not a string.")
-                            continue
+                            logger.error(f"Page content for URL {crawled_url} is not a string.")
+                            continue  # Skip invalid content
 
-                        # Handle the crawled content with its specific URL
-                        await knowledge.knowledge_base.handle_url(crawled_url, page_content)
-                        page_count += 1
-
-                        # Send a Telegram reply every 'batch_size' pages
-                        if page_count % batch_size == 0:
-                            await telegram_reply(f"{page_count} pages from the URL are indexed successfully.")
-
-                    # After crawling completes, send a summary message if not already sent
-                    if page_count % batch_size != 0:
-                        await telegram_reply(f"Total {page_count} pages from the URL are indexed successfully.")
-                    elif page_count == 0:
-                        await telegram_reply(f"No pages were indexed from the URL: {url}")
+                        page_count += 1  # Increment the page count
 
                 except Exception as e:
-                    await telegram_reply(f"Failed to crawl URL: {url}. Error: {str(e)}")
-                    logger.error(f"Error crawling URL {url}: {e}")
-                    continue
+                    logger.error(f"Failed to crawl URL: {url}. Error: {str(e)}")
+
+                finally:
+                    # Send a single summary message after crawling completes or fails
+                    if page_count > 0:
+                        await telegram_reply(f"Total {page_count} pages from the URL: {url} are indexed successfully.")
+                    else:
+                        await telegram_reply(f"No pages were indexed from the URL: {url}")
+
+                    logger.info(f"Crawling completed for URL: {url} with {page_count} pages indexed.")
+
+            # Schedule all crawl tasks to run concurrently in the background
+            for url in params['urls']:
+                normalized_url = normalize_url(url)
+                background_tasks.add_task(crawl_and_process, normalized_url)
 
             all_urls = ",".join(params['urls'])
-            text = f"SYSTEM: URLs crawled and added to knowledge base {all_urls}"
+            text = f"SYSTEM: URLs are being crawled and added to knowledge base: {all_urls}"
 
         await router.next_action(text, params['user'], mongo,
                                  reply_function=telegram_reply,

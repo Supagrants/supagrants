@@ -5,7 +5,6 @@ from typing import List, Optional, Iterator, Dict, Any
 import json
 import asyncio
 from hashlib import md5
-import uuid
 import re
 
 from pydantic import BaseModel
@@ -16,7 +15,7 @@ from phi.utils.log import logger
 from bs4 import BeautifulSoup
 
 from utils.llm_helper import get_embedder
-from utils.url_helper import is_valid_url
+from utils.url_helper import is_valid_url, normalize_url
 from sqlalchemy import text
 
 # Define MAX_CHUNK_SIZE at the module level
@@ -61,7 +60,7 @@ class CustomKnowledgeBase(AgentKnowledge):
                     current_chunk = split_sentences[-1]
         if current_chunk:
             chunks.append(current_chunk)
-        logger.info(f"Total chunks created: {len(chunks)}")
+        logger.debug(f"Total chunks created: {len(chunks)}")
         return chunks
 
     def compute_content_hash(self, content: str) -> str:
@@ -103,6 +102,10 @@ class CustomKnowledgeBase(AgentKnowledge):
             meta_data = document.get("meta_data", {})
             if document_type:
                 meta_data['document_type'] = document_type
+
+            # Initialize 'filters' in meta_data if not present
+            if 'filters' not in meta_data:
+                meta_data['filters'] = {}
 
             # Split content into chunks using the module-level MAX_CHUNK_SIZE
             chunks = self.split_content_into_chunks(content, MAX_CHUNK_SIZE)
@@ -154,15 +157,57 @@ class CustomKnowledgeBase(AgentKnowledge):
                 logger.error("No valid document chunks to insert after embedding generation.")
                 return
 
-            # Run the synchronous insert method in an executor
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, self.vector_db.insert, docs)
+            # Prepare SQL statement with ON CONFLICT clause
+            insert_query = f"""
+            INSERT INTO {self.vector_db.table_name} (id, name, meta_data, filters, content, embedding, usage, content_hash)
+            VALUES (:id, :name, :meta_data, :filters, :content, :embedding, :usage, :content_hash)
+            ON CONFLICT (id) DO NOTHING;
+            """
 
-            logger.info(f"Indexed {len(docs)} chunks of document in pgvector: {title}")
+            # Insert documents using a synchronous helper function
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, self._insert_documents_sync, insert_query, docs)
+
+            logger.debug(f"Indexed {len(docs)} chunks of document in pgvector: {title}")
 
         except Exception as e:
             logger.error(f"Error indexing document '{document.get('title', '')}': {e}")
             raise e
+
+    def _insert_documents_sync(self, insert_query: str, docs: List[Document]):
+        """
+        Synchronously insert documents into the database.
+
+        Args:
+            insert_query (str): The SQL insert query with ON CONFLICT clause.
+            docs (List[Document]): The list of Document instances to insert.
+        """
+        try:
+            with self.vector_db.Session() as sess:
+                with sess.begin():
+                    for doc in docs:
+                        try:
+                            # Extract 'filters' from 'meta_data'
+                            filters = doc.meta_data.get('filters', {})
+                            sess.execute(
+                                text(insert_query),
+                                {
+                                    "id": doc.id,
+                                    "name": doc.name,
+                                    "meta_data": json.dumps(doc.meta_data),
+                                    "filters": json.dumps(filters) if filters else None,
+                                    "content": doc.content,
+                                    "embedding": json.dumps(doc.embedding),
+                                    "usage": json.dumps(doc.meta_data.get('usage', {})),
+                                    "content_hash": self.compute_content_hash(doc.content)
+                                }
+                            )
+                            logger.debug(f"Inserted/Skipped document with ID: {doc.id}")
+                        except Exception as e:
+                            logger.error(f"Error inserting document ID {doc.id}: {e}")
+                            continue
+        except Exception as e:
+            logger.error(f"Error during document insertion: {e}")
 
     async def get_embedding_with_retries(self, embedder, text, retries=3, delay=2):
         """
@@ -207,9 +252,9 @@ class CustomKnowledgeBase(AgentKnowledge):
             return
 
         try:
-            if await self.is_duplicate(url):
-                logger.info(f"Duplicate URL detected, skipping: {url}")
-                return
+            # Normalize the URL
+            normalized_url = normalize_url(url)
+            logger.debug(f"Normalized URL for handling: {normalized_url}")
 
             # Ensure crawled_content is a string
             if isinstance(crawled_content, list):
@@ -220,14 +265,14 @@ class CustomKnowledgeBase(AgentKnowledge):
                 logger.error(f"crawled_content is not a string for URL {url}.")
                 return
 
-            metadata = await self.extract_metadata(url, crawled_content)
+            metadata = await self.extract_metadata(normalized_url, crawled_content)
             document = {
-                "title": metadata.get("title", url),
+                "title": metadata.get("title", normalized_url),
                 "content": crawled_content,
                 "meta_data": metadata
             }
             await self.add_document(document, document_type="url")
-            logger.info(f"Indexed URL in pgvector: {url}")
+            logger.info(f"Indexed URL in pgvector: {normalized_url}")
         except Exception as e:
             logger.error(f"Error indexing URL {url}: {e}")
 
@@ -283,18 +328,23 @@ class CustomKnowledgeBase(AgentKnowledge):
         Returns:
             bool: True if duplicate, False otherwise.
         """
+        normalized_url = normalize_url(url)
         query = f"SELECT EXISTS(SELECT 1 FROM {self.vector_db.table_name} WHERE meta_data->>'source' = :url)"
+        
+        logger.debug(f"Checking duplicate for URL: {normalized_url}")
+
         try:
             loop = asyncio.get_event_loop()
             exists = await loop.run_in_executor(
                 None,
                 self._execute_exists_query,
                 query,
-                url
+                normalized_url
             )
+            logger.debug(f"Duplicate check result for URL '{normalized_url}': {exists}")
             return exists
         except Exception as e:
-            logger.error(f"Error checking duplicate for URL {url}: {e}")
+            logger.error(f"Error checking duplicate for URL {normalized_url}: {e}")
             return False
 
     def _execute_exists_query(self, query: str, url: str) -> bool:
@@ -311,7 +361,8 @@ class CustomKnowledgeBase(AgentKnowledge):
         try:
             with self.vector_db.Session() as sess, sess.begin():
                 result = sess.execute(text(query), {"url": url}).scalar()
+                logger.debug(f"Query Result for URL '{url}': {result}")
                 return result if result is not None else False
         except Exception as e:
-            logger.error(f"Error executing duplicate check query: {e}")
+            logger.error(f"Error executing duplicate check query for URL '{url}': {e}")
             return False
