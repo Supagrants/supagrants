@@ -1,6 +1,7 @@
 # utils/url_helper.py
 
 import re
+from typing import List, Optional
 from urllib.parse import urlparse, urlunparse, quote, unquote
 import logging
 
@@ -46,6 +47,70 @@ def is_valid_url(url: str) -> bool:
     else:
         logger.debug(f"URL '{url}' is invalid.")
         return False
+
+def extract_valid_urls(content: str, entity_urls: Optional[List[str]] = None) -> List[str]:
+    """
+    Extract and validate URLs from message content and message entities.
+
+    This function performs the following steps:
+    1. Extracts potential URLs using a regex pattern.
+    2. Incorporates URLs extracted from Telegram message entities.
+    3. Cleans URLs by removing trailing punctuation.
+    4. Prepends 'https://' to URLs missing a scheme.
+    5. Validates URLs using the `is_valid_url` function.
+
+    Args:
+        content (str): The text content of the message.
+        entity_urls (Optional[List[str]]): List of URLs extracted from message entities.
+
+    Returns:
+        List[str]: A list of validated and cleaned URLs.
+    """
+    # Initialize list to hold potential URLs
+    potential_urls = []
+
+    # Define a robust regex pattern to extract URLs with or without schemes
+    url_pattern = re.compile(
+        r'(?:(?:https?://)?(?:www\.)?'
+        r'[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
+        r'(?:/[^\s.,;!?)"\']*)?)', re.IGNORECASE
+    )
+
+    # Extract URLs using regex
+    regex_urls = re.findall(url_pattern, content)
+    potential_urls.extend(regex_urls)
+    logger.debug(f"URLs extracted via regex: {regex_urls}")
+
+    # Incorporate URLs from message entities if provided
+    if entity_urls:
+        potential_urls.extend(entity_urls)
+        logger.debug(f"URLs extracted from entities: {entity_urls}")
+
+    # Initialize list to hold validated URLs
+    extracted_urls = []
+
+    for url in potential_urls:
+        # Remove trailing punctuation
+        cleaned_url = url.rstrip('.,;!?)"]\'')
+        logger.debug(f"URL after stripping punctuation: '{cleaned_url}'")
+
+        # If URL doesn't have a scheme, prepend 'https://'
+        if not re.match(r'^https?://', cleaned_url, re.IGNORECASE):
+            cleaned_url = 'https://' + cleaned_url
+            logger.debug(f"URL after prepending scheme: '{cleaned_url}'")
+
+        # Validate URL
+        if is_valid_url(cleaned_url):
+            extracted_urls.append(cleaned_url)
+            logger.debug(f"Valid URL added: '{cleaned_url}'")
+        else:
+            logger.debug(f"Invalid URL skipped: '{cleaned_url}'")
+
+    # Remove duplicates while preserving order
+    unique_urls = list(dict.fromkeys(extracted_urls))
+    logger.debug(f"Unique validated URLs: {unique_urls}")
+
+    return unique_urls
 
 def normalize_url(url: str) -> str:
     """

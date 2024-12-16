@@ -6,9 +6,11 @@ import logging
 from typing import Optional
 import asyncio
 
-from telegram import Update, Bot
+from telegram import Update, Bot, MessageEntity
 from telegram.constants import ParseMode
 from chatgpt_md_converter import telegram_format
+
+from utils.url_helper import is_valid_url, extract_valid_urls
 
 logger = logging.getLogger(__name__)
 
@@ -76,8 +78,19 @@ class TelegramHelper:
             if handle and handle in content:
                 content = content.replace(handle, '').strip()
 
-            url_pattern = r'(https?://\S+)'
-            extracted_urls = re.findall(url_pattern, content)
+            # Extract URLs from message entities
+            entity_urls = []
+            if message.entities:
+                for entity in message.entities:
+                    if entity.type == MessageEntity.URL:
+                        url = message.parse_entity(entity)
+                        entity_urls.append(url)
+                    elif entity.type == MessageEntity.TEXT_LINK:
+                        url = entity.url
+                        entity_urls.append(url)
+
+            # Use the helper function to extract and validate URLs
+            extracted_urls = extract_valid_urls(content, entity_urls)
 
             file_info = None
             if message.document:
