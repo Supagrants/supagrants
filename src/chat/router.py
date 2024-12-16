@@ -1,21 +1,29 @@
 # router.py
 
-from phi.agent import Agent, RunResponse
+from phi.agent import Agent, RunResponse, AgentMemory
+from phi.memory.db.postgres import PgMemoryDb
 from phi.storage.agent.postgres import PgAgentStorage
 from phi.tools.duckduckgo import DuckDuckGo
 
 from chat import prompts, knowledge
+from chat.token_limit_agent import TokenLimitAgent
 from config import OPENAI_API_KEY
 from config import POSTGRES_CONNECTION
 from utils.llm_helper import get_llm_model
 
 
 async def next_action(msg: str, user_id: str, mongo, reply_function=None, processing_id=None):
-    agent = Agent(
+    agent = TokenLimitAgent(
         name="Chat Agent",
         model=get_llm_model(),
         session_id='main',# todo replace with group / chat
         user_id=user_id,
+        # memory=AgentMemory(
+        #     db=PgMemoryDb(table_name="agent_memory", db_url=POSTGRES_CONNECTION), 
+        #     create_user_memories=True, 
+        #     create_session_summary=True,
+        #     num_memories=10,
+        # ),
         storage=PgAgentStorage(table_name="agent_sessions", db_url=POSTGRES_CONNECTION),
         num_history_responses=10,
         description=prompts.ABOUT,
