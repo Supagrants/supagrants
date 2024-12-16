@@ -70,7 +70,9 @@ def extract_valid_urls(content: str, entity_urls: Optional[List[str]] = None) ->
     potential_urls = []
 
     # Define a robust regex pattern to extract URLs with or without schemes
+    # Added negative lookbehind to ensure URLs are not preceded by '@' (to ignore emails)
     url_pattern = re.compile(
+        r'(?<!@)'  # Negative lookbehind to ensure no '@' before the URL
         r'(?:(?:https?://)?(?:www\.)?'
         r'[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
         r'(?:/[^\s.,;!?)"\']*)?)', re.IGNORECASE
@@ -101,6 +103,12 @@ def extract_valid_urls(content: str, entity_urls: Optional[List[str]] = None) ->
 
         # Validate URL
         if is_valid_url(cleaned_url):
+            # Additional check to ensure the URL is not part of an email
+            # For example, ensure there's no '@' symbol immediately before the URL
+            start_index = content.find(url)
+            if start_index > 0 and content[start_index - 1] == '@':
+                logger.debug(f"URL '{cleaned_url}' is part of an email and will be skipped.")
+                continue  # Skip URLs that are part of an email address
             extracted_urls.append(cleaned_url)
             logger.debug(f"Valid URL added: '{cleaned_url}'")
         else:
