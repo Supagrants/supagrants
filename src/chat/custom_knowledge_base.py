@@ -13,10 +13,11 @@ from phi.knowledge.agent import AgentKnowledge
 from phi.vectordb.pgvector import PgVector
 from phi.utils.log import logger
 from bs4 import BeautifulSoup
+import aiohttp
+from sqlalchemy import text
 
 from utils.llm_helper import get_embedder
 from utils.url_helper import is_valid_url, normalize_url
-from sqlalchemy import text
 
 # Define MAX_CHUNK_SIZE at the module level
 MAX_CHUNK_SIZE = 9000  # bytes
@@ -94,14 +95,14 @@ class CustomKnowledgeBase(AgentKnowledge):
 
         Args:
             document (Dict[str, Any]): The document to add, containing 'title', 'content', and 'meta_data'.
-            document_type (Optional[str]): The type/source of the document (e.g., 'pdf', 'url').
+            document_type (Optional[str]): The type/source of the document (e.g., 'pdf', 'url', 'txt').
         """
         try:
             title = document.get("title", "")
             content = document.get("content", "")
             meta_data = document.get("meta_data", {})
             if document_type:
-                meta_data['document_type'] = document_type
+                meta_data['document_type'] = document_type  # Optional: Retain in meta_data if needed
 
             # Initialize 'filters' in meta_data if not present
             if 'filters' not in meta_data:
@@ -157,16 +158,20 @@ class CustomKnowledgeBase(AgentKnowledge):
                 logger.error("No valid document chunks to insert after embedding generation.")
                 return
 
-            # Prepare SQL statement with ON CONFLICT clause
+            # Prepare SQL statement with ON CONFLICT clause, including 'document_type'
             insert_query = f"""
-            INSERT INTO {self.vector_db.table_name} (id, name, meta_data, filters, content, embedding, usage, content_hash)
-            VALUES (:id, :name, :meta_data, :filters, :content, :embedding, :usage, :content_hash)
+            INSERT INTO {self.vector_db.table_name} (
+                id, name, meta_data, filters, content, embedding, usage, content_hash, document_type
+            )
+            VALUES (
+                :id, :name, :meta_data, :filters, :content, :embedding, :usage, :content_hash, :document_type
+            )
             ON CONFLICT (id) DO NOTHING;
             """
 
             # Insert documents using a synchronous helper function
             loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, self._insert_documents_sync, insert_query, docs)
+            await loop.run_in_executor(None, self._insert_documents_sync, insert_query, docs, document_type)
 
             logger.debug(f"Indexed {len(docs)} chunks of document in pgvector: {title}")
 
@@ -174,13 +179,14 @@ class CustomKnowledgeBase(AgentKnowledge):
             logger.error(f"Error indexing document '{document.get('title', '')}': {e}")
             raise e
 
-    def _insert_documents_sync(self, insert_query: str, docs: List[Document]):
+    def _insert_documents_sync(self, insert_query: str, docs: List[Document], document_type: str):
         """
         Synchronously insert documents into the database.
 
         Args:
             insert_query (str): The SQL insert query with ON CONFLICT clause.
             docs (List[Document]): The list of Document instances to insert.
+            document_type (str): The type of the document being inserted.
         """
         try:
             with self.vector_db.Session() as sess:
@@ -195,11 +201,12 @@ class CustomKnowledgeBase(AgentKnowledge):
                                     "id": doc.id,
                                     "name": doc.name,
                                     "meta_data": json.dumps(doc.meta_data),
-                                    "filters": json.dumps(filters) if filters else None,
+                                    "filters": json.dumps(filters) if filters else '{}',
                                     "content": doc.content,
                                     "embedding": json.dumps(doc.embedding),
                                     "usage": json.dumps(doc.meta_data.get('usage', {})),
-                                    "content_hash": self.compute_content_hash(doc.content)
+                                    "content_hash": self.compute_content_hash(doc.content),
+                                    "document_type": document_type
                                 }
                             )
                             logger.debug(f"Inserted/Skipped document with ID: {doc.id}")
@@ -318,20 +325,19 @@ class CustomKnowledgeBase(AgentKnowledge):
 
         return metadata
 
-    async def is_duplicate(self, url: str) -> bool:
+    async def is_source_indexed(self, source: str) -> bool:
         """
-        Check if a URL is already indexed.
+        Check if a source is already indexed.
 
         Args:
-            url (str): The URL to check.
+            source (str): The source URL or file path.
 
         Returns:
-            bool: True if duplicate, False otherwise.
+            bool: True if the source is already indexed, False otherwise.
         """
-        normalized_url = normalize_url(url)
-        query = f"SELECT EXISTS(SELECT 1 FROM {self.vector_db.table_name} WHERE meta_data->>'source' = :url)"
+        query = f"SELECT EXISTS(SELECT 1 FROM {self.vector_db.table_name} WHERE meta_data->>'source' = :source)"
         
-        logger.debug(f"Checking duplicate for URL: {normalized_url}")
+        logger.debug(f"Checking if source is indexed: {source}")
 
         try:
             loop = asyncio.get_event_loop()
@@ -339,30 +345,99 @@ class CustomKnowledgeBase(AgentKnowledge):
                 None,
                 self._execute_exists_query,
                 query,
-                normalized_url
+                source
             )
-            logger.debug(f"Duplicate check result for URL '{normalized_url}': {exists}")
+            logger.debug(f"Duplicate source check result for '{source}': {exists}")
             return exists
         except Exception as e:
-            logger.error(f"Error checking duplicate for URL {normalized_url}: {e}")
+            logger.error(f"Error checking duplicate source for '{source}': {e}")
             return False
 
-    def _execute_exists_query(self, query: str, url: str) -> bool:
+    def _execute_exists_query(self, query: str, source: str) -> bool:
         """
         Execute the duplicate check query synchronously.
 
         Args:
             query (str): The SQL query to execute.
-            url (str): The URL parameter for the query.
+            source (str): The source parameter for the query.
 
         Returns:
             bool: Result of the duplicate check.
         """
         try:
             with self.vector_db.Session() as sess, sess.begin():
-                result = sess.execute(text(query), {"url": url}).scalar()
-                logger.debug(f"Query Result for URL '{url}': {result}")
+                result = sess.execute(text(query), {"source": source}).scalar()
+                logger.debug(f"Query Result for source '{source}': {result}")
                 return result if result is not None else False
         except Exception as e:
-            logger.error(f"Error executing duplicate check query for URL '{url}': {e}")
+            logger.error(f"Error executing duplicate source check for '{source}': {e}")
             return False
+
+    async def handle_txt_file(self, file_info: dict):
+        """
+        Handle TXT files by downloading and indexing their content.
+
+        Args:
+            file_info (dict): Information about the TXT file, including 'file_url', 'file_name', etc.
+        """
+        if file_info.get('mime_type') != 'text/plain':
+            logger.warning(f"Unsupported MIME type for TXT handling: {file_info.get('mime_type')}")
+            return
+
+        source = file_info['file_url']
+        if await self.is_source_indexed(source):
+            logger.info(f"Duplicate source detected, skipping: {source}")
+            return
+
+        try:
+            file_content = await self.download_file(file_info['file_url'])
+            if not file_content:
+                logger.error(f"Failed to download TXT file: {file_info['file_url']}")
+                return
+
+            # Generate content hash
+            content_hash = self.compute_content_hash(file_content)
+
+            # Prepare metadata
+            metadata = {
+                "source": file_info['file_url'],
+                "original_filename": file_info['file_name'],
+                "document_type": "txt",
+                # Add other metadata fields as needed
+            }
+
+            # Create document dictionary
+            document = {
+                "title": file_info['file_name'],
+                "content": file_content,
+                "meta_data": metadata
+            }
+
+            # Add document with 'txt' as document_type
+            await self.add_document(document, document_type="txt")
+            logger.info(f"Indexed TXT file: {file_info['file_name']}")
+
+        except Exception as e:
+            logger.error(f"Error indexing TXT file {file_info.get('file_name', '')}: {e}")
+
+    async def download_file(self, file_url: str) -> Optional[str]:
+        """
+        Download the content of a file from a given URL.
+
+        Args:
+            file_url (str): The URL of the file to download.
+
+        Returns:
+            Optional[str]: The content of the file as a string, or None if failed.
+        """
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(file_url) as response:
+                    if response.status == 200:
+                        return await response.text()
+                    else:
+                        logger.error(f"Failed to download file. Status code: {response.status} for URL: {file_url}")
+                        return None
+        except Exception as e:
+            logger.error(f"Exception during file download from {file_url}: {e}")
+            return None

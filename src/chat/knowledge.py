@@ -38,9 +38,14 @@ async def initialize_knowledge_base():
     await vector_db.initialize()
 
 async def handle_document(file_info: dict):
-    if file_info['mime_type'] == 'application/pdf':
+    mime_type = file_info.get('mime_type')
+    if mime_type == 'application/pdf':
         pdf_knowledge_base.urls = [file_info['file_url']]
         await pdf_knowledge_base.load(recreate=False)  # Ensure this is awaited
+    elif mime_type == 'text/plain':
+        await knowledge_base.handle_txt_file(file_info)
+    else:
+        logger.warning(f"Unsupported MIME type: {mime_type}")
     return
 
 async def handle_url(url: str, crawled_content: Any):
@@ -49,7 +54,7 @@ async def handle_url(url: str, crawled_content: Any):
         return
 
     try:
-        if await knowledge_base.is_duplicate(url):
+        if await knowledge_base.is_source_indexed(url):
             logger.info(f"Duplicate URL detected, skipping: {url}")
             return
 

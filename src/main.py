@@ -114,7 +114,7 @@ async def mentor(request: Request, background_tasks: BackgroundTasks):
 
             # Define check_duplicate and index_page outside the loop
             async def check_duplicate(url: str) -> bool:
-                return await knowledge.knowledge_base.is_duplicate(url)
+                return await knowledge.knowledge_base.is_source_indexed(url)
 
             async def index_page(url: str, content: str):
                 await knowledge.handle_url(url, content)
