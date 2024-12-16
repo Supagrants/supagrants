@@ -1,14 +1,13 @@
 # knowledge.py
 
 from typing import List, Any
-from phi.knowledge.pdf import PDFUrlKnowledgeBase
 from phi.vectordb.pgvector import PgVector
 from config import POSTGRES_CONNECTION
 from utils.llm_helper import get_embedder
-from utils.url_helper import is_valid_url
+from utils.url_helper import is_valid_url, normalize_url
 from phi.utils.log import logger
 
-from .custom_knowledge_base import CustomKnowledgeBase  # Import the new class
+from .custom_knowledge_base import CustomKnowledgeBase
 
 # Initialize a unified PgVector for all documents
 vector_db = PgVector(
@@ -17,17 +16,9 @@ vector_db = PgVector(
     embedder=get_embedder(),
 )
 
-# Initialize PDF knowledge base with document_type
-pdf_knowledge_base = PDFUrlKnowledgeBase(
-    urls=[],
-    vector_db=vector_db,
-    document_type="pdf"
-)
-
 # Initialize CustomKnowledgeBase
 knowledge_base = CustomKnowledgeBase(
     sources=[
-        pdf_knowledge_base,
         # Add other knowledge sources here if needed
     ],
     vector_db=vector_db,
@@ -40,8 +31,7 @@ async def initialize_knowledge_base():
 async def handle_document(file_info: dict):
     mime_type = file_info.get('mime_type')
     if mime_type == 'application/pdf':
-        pdf_knowledge_base.urls = [file_info['file_url']]
-        await pdf_knowledge_base.load(recreate=False)  # Ensure this is awaited
+        await knowledge_base.handle_pdf_file(file_info)
     elif mime_type == 'text/plain':
         await knowledge_base.handle_txt_file(file_info)
     else:

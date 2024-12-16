@@ -6,6 +6,7 @@ import json
 import asyncio
 from hashlib import md5
 import re
+import io
 
 from pydantic import BaseModel
 from phi.document import Document
@@ -15,11 +16,11 @@ from phi.utils.log import logger
 from bs4 import BeautifulSoup
 import aiohttp
 from sqlalchemy import text
+from pdfminer.high_level import extract_text
 
 from utils.llm_helper import get_embedder
 from utils.url_helper import is_valid_url, normalize_url
 
-# Define MAX_CHUNK_SIZE at the module level
 MAX_CHUNK_SIZE = 9000  # bytes
 
 class CustomKnowledgeBase(AgentKnowledge):
@@ -390,9 +391,16 @@ class CustomKnowledgeBase(AgentKnowledge):
             return
 
         try:
-            file_content = await self.download_file(file_info['file_url'])
-            if not file_content:
+            file_content_bytes = await self.download_file(file_info['file_url'])
+            if not file_content_bytes:
                 logger.error(f"Failed to download TXT file: {file_info['file_url']}")
+                return
+
+            # Decode bytes to string
+            try:
+                file_content = file_content_bytes.decode('utf-8')  # Adjust encoding if necessary
+            except UnicodeDecodeError as e:
+                logger.error(f"Failed to decode TXT file content from {file_info['file_url']}: {e}")
                 return
 
             # Generate content hash
@@ -420,7 +428,79 @@ class CustomKnowledgeBase(AgentKnowledge):
         except Exception as e:
             logger.error(f"Error indexing TXT file {file_info.get('file_name', '')}: {e}")
 
-    async def download_file(self, file_url: str) -> Optional[str]:
+    async def handle_pdf_file(self, file_info: dict):
+        """
+        Handle PDF files by downloading, extracting text, and indexing their content.
+
+        Args:
+            file_info (dict): Information about the PDF file, including 'file_url', 'file_name', etc.
+        """
+        if file_info.get('mime_type') != 'application/pdf':
+            logger.warning(f"Unsupported MIME type for PDF handling: {file_info.get('mime_type')}")
+            return
+
+        source = file_info['file_url']
+        if await self.is_source_indexed(source):
+            logger.info(f"Duplicate source detected, skipping: {source}")
+            return
+
+        try:
+            file_content = await self.download_file(file_info['file_url'])
+            if not file_content:
+                logger.error(f"Failed to download PDF file: {file_info['file_url']}")
+                return
+
+            # Extract text from PDF
+            extracted_text = await self.extract_text_from_pdf(file_content)
+            if not extracted_text:
+                logger.error(f"No text extracted from PDF file: {file_info['file_url']}")
+                return
+
+            # Generate content hash
+            content_hash = self.compute_content_hash(extracted_text)
+
+            # Prepare metadata
+            metadata = {
+                "source": file_info['file_url'],
+                "original_filename": file_info['file_name'],
+                "document_type": "pdf",
+                # Add other metadata fields as needed
+            }
+
+            # Create document dictionary
+            document = {
+                "title": file_info['file_name'],
+                "content": extracted_text,
+                "meta_data": metadata
+            }
+
+            # Add document with 'pdf' as document_type
+            await self.add_document(document, document_type="pdf")
+            logger.info(f"Indexed PDF file: {file_info['file_name']}")
+
+        except Exception as e:
+            logger.error(f"Error indexing PDF file {file_info.get('file_name', '')}: {e}")
+
+    async def extract_text_from_pdf(self, pdf_bytes: bytes) -> Optional[str]:
+        """
+        Extract text from a PDF file.
+
+        Args:
+            pdf_bytes (bytes): The raw bytes of the PDF file.
+
+        Returns:
+            Optional[str]: The extracted text or None if extraction fails.
+        """
+        try:
+            with io.BytesIO(pdf_bytes) as pdf_file:
+                text = extract_text(pdf_file)
+                logger.debug("Extracted text from PDF successfully.")
+                return text
+        except Exception as e:
+            logger.error(f"Failed to extract text from PDF: {e}")
+            return None
+
+    async def download_file(self, file_url: str) -> Optional[bytes]:
         """
         Download the content of a file from a given URL.
 
@@ -428,13 +508,13 @@ class CustomKnowledgeBase(AgentKnowledge):
             file_url (str): The URL of the file to download.
 
         Returns:
-            Optional[str]: The content of the file as a string, or None if failed.
+            Optional[bytes]: The content of the file as bytes, or None if failed.
         """
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(file_url) as response:
                     if response.status == 200:
-                        return await response.text()
+                        return await response.read()
                     else:
                         logger.error(f"Failed to download file. Status code: {response.status} for URL: {file_url}")
                         return None

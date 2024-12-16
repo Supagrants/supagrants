@@ -32,3 +32,6 @@ firecrawl-py
 pygithub
 markdown
 beautifulsoup4
+
+# file
+pdfminer.six
