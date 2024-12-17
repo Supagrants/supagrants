@@ -164,7 +164,7 @@ class CustomKnowledgeBase(AgentKnowledge):
 
             # Prepare SQL statement with ON CONFLICT clause, including 'document_type'
             insert_query = f"""
-            INSERT INTO {self.vector_db.table_name} (
+            INSERT INTO {self.vector_db.schema}.{self.vector_db.table_name} (
                 id, name, meta_data, filters, content, embedding, usage, content_hash, document_type
             )
             VALUES (
@@ -358,7 +358,7 @@ class CustomKnowledgeBase(AgentKnowledge):
         Returns:
             bool: True if the source is already indexed, False otherwise.
         """
-        query = f"SELECT EXISTS(SELECT 1 FROM {self.vector_db.table_name} WHERE meta_data->>'source' = :source)"
+        query = f"SELECT EXISTS(SELECT 1 FROM {self.vector_db.schema}.{self.vector_db.table_name} WHERE meta_data->>'source' = :source)"
         
         logger.debug(f"Checking if source is indexed: {source}")
 
