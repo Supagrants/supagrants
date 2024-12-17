@@ -112,12 +112,11 @@ async def mentor(request: Request, background_tasks: BackgroundTasks):
             # Initialize the crawler tool once
             crawl_tool = crawler.Crawl4aiTools()
 
-            # Define check_duplicate and index_page outside the loop
             async def check_duplicate(url: str) -> bool:
                 return await knowledge.knowledge_base.is_source_indexed(url)
 
             async def index_page(url: str, content: str):
-                await knowledge.handle_url(url, content)
+                await knowledge.knowledge_base.handle_url(url, content)
 
             async def crawl_and_process(url: str):
                 page_count = 0

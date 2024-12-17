@@ -117,9 +117,10 @@ class CustomKnowledgeBase(AgentKnowledge):
 
             # Create Document instances for each chunk
             docs = []
-            base_content_hash = self.compute_content_hash(content)
+            source_hash = self.compute_content_hash(meta_data.get("source", ""))
+            content_hash = self.compute_content_hash(content)
             for idx, chunk in enumerate(chunks):
-                chunk_id = f"{base_content_hash}_chunk_{idx}"  # Unique ID based on content hash and chunk index
+                chunk_id = f"{source_hash}_{content_hash}_chunk_{idx}"  # Unique ID based on source_hash, content hash and chunk index
                 chunk_meta_data = meta_data.copy()
                 chunk_meta_data['chunk'] = idx + 1
                 chunk_meta_data['total_chunks'] = len(chunks)
@@ -167,7 +168,16 @@ class CustomKnowledgeBase(AgentKnowledge):
             VALUES (
                 :id, :name, :meta_data, :filters, :content, :embedding, :usage, :content_hash, :document_type
             )
-            ON CONFLICT (id) DO NOTHING;
+            ON CONFLICT (id) 
+            DO UPDATE SET 
+                name = EXCLUDED.name,
+                meta_data = EXCLUDED.meta_data,
+                filters = EXCLUDED.filters,
+                content = EXCLUDED.content,
+                embedding = EXCLUDED.embedding,
+                usage = EXCLUDED.usage,
+                content_hash = EXCLUDED.content_hash,
+                document_type = EXCLUDED.document_type;
             """
 
             # Insert documents using a synchronous helper function
@@ -192,11 +202,11 @@ class CustomKnowledgeBase(AgentKnowledge):
         try:
             with self.vector_db.Session() as sess:
                 with sess.begin():
+                    overall_result = None
                     for doc in docs:
                         try:
-                            # Extract 'filters' from 'meta_data'
                             filters = doc.meta_data.get('filters', {})
-                            sess.execute(
+                            result = sess.execute(
                                 text(insert_query),
                                 {
                                     "id": doc.id,
@@ -210,10 +220,20 @@ class CustomKnowledgeBase(AgentKnowledge):
                                     "document_type": document_type
                                 }
                             )
-                            logger.debug(f"Inserted/Skipped document with ID: {doc.id}")
+                            
+                            # Keep track of the last insert result, or aggregate results
+                            overall_result = result
+
+                            if result.rowcount > 0:
+                                logger.info(f"Successfully inserted document with ID: {doc.id}")
+                            else:
+                                logger.warning(f"No rows affected for document ID: {doc.id}")
+                            
                         except Exception as e:
                             logger.error(f"Error inserting document ID {doc.id}: {e}")
                             continue
+
+                    return overall_result  # Or return something meaningful after the loop
         except Exception as e:
             logger.error(f"Error during document insertion: {e}")
 

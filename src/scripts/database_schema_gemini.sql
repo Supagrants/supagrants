@@ -11,7 +11,7 @@ CREATE TABLE ai.documents (
     usage JSONB NOT NULL DEFAULT '{}'::jsonb,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW(),
-    content_hash TEXT UNIQUE,
+    content_hash TEXT,
     filters JSONB DEFAULT '{}'::jsonb
 );
 
@@ -19,3 +19,4 @@ CREATE TABLE ai.documents (
 CREATE INDEX IF NOT EXISTS idx_documents_embedding ON ai.documents USING ivfflat (embedding vector_cosine_ops);
 CREATE INDEX IF NOT EXISTS idx_documents_source ON ai.documents USING btree ((meta_data->>'source'));
 CREATE INDEX IF NOT EXISTS idx_documents_type ON ai.documents USING btree (document_type);
+CREATE INDEX IF NOT EXISTS idx_documents_content_hash_source ON ai.documents (content_hash, (meta_data->>'source'));
