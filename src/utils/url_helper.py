@@ -17,30 +17,32 @@ def is_valid_url(url: str) -> bool:
     Returns:
         bool: True if valid, False otherwise.
     """
-    # Comprehensive URL regex pattern
+    # Comprehensive URL regex pattern with named groups
     url_regex = re.compile(
-        r'^(https?://)'  # http:// or https://
-        r'('
-            r'('
-                r'([A-Za-z0-9-]+\.)+[A-Za-z]{2,}'  # Domain...
-            r')'
+        r'^(?P<scheme>https?://)'  # scheme
+        r'(?P<host>('
+            r'(?P<domain>([A-Za-z0-9-]+\.)+[A-Za-z]{2,})'  # domain
             r'|'
-            r'(localhost)'  # localhost...
+            r'localhost'  # localhost
             r'|'
-            r'(\[?[A-Fa-f0-9:]+\]?)'  # IPv6 or IPv4
-        r')'
-        r'(:\d{1,5})?'  # Optional port (1-65535)
-        r'(/[\w\-.~:/?#\[\]@!$&\'()*+,;=%]*)?'  # Optional path and query
+            r'\[(?P<ipv6>[A-Fa-f0-9:]+)\]'  # IPv6
+        r'))'
+        r'(?::(?P<port>\d{1,5}))?'  # optional port
+        r'(?P<path>/\S*)?'  # optional path
         r'$', re.IGNORECASE
     )
 
     match = re.match(url_regex, url)
     if match:
-        port = match.group(5)
+        port = match.group('port')
         if port:
-            port_num = int(port.lstrip(':'))
-            if not (1 <= port_num <= 65535):
-                logger.debug(f"Invalid port number: {port_num}")
+            try:
+                port_num = int(port)
+                if not (1 <= port_num <= 65535):
+                    logger.debug(f"Invalid port number: {port_num}")
+                    return False
+            except ValueError:
+                logger.debug(f"Port '{port}' is not a valid integer.")
                 return False
         logger.debug(f"URL '{url}' is valid.")
         return True
@@ -52,13 +54,6 @@ def extract_valid_urls(content: str, entity_urls: Optional[List[str]] = None) ->
     """
     Extract and validate URLs from message content and message entities.
 
-    This function performs the following steps:
-    1. Extracts potential URLs using a regex pattern.
-    2. Incorporates URLs extracted from Telegram message entities.
-    3. Cleans URLs by removing trailing punctuation.
-    4. Prepends 'https://' to URLs missing a scheme.
-    5. Validates URLs using the `is_valid_url` function.
-
     Args:
         content (str): The text content of the message.
         entity_urls (Optional[List[str]]): List of URLs extracted from message entities.
@@ -69,18 +64,18 @@ def extract_valid_urls(content: str, entity_urls: Optional[List[str]] = None) ->
     # Initialize list to hold potential URLs
     potential_urls = []
 
-    # Define a robust regex pattern to extract URLs with or without schemes
-    # Added negative lookbehind to ensure URLs are not preceded by '@' (to ignore emails)
+    # Improved regex pattern to match full URLs, including IPv6 and ports
     url_pattern = re.compile(
-        r'(?<![\w.-])'
-        r'(?:https?://|www\.)?'
-        r'([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}'
-        r'(?:/[^\s.,;!?)"\']*)?',
+        r'(?:(?<=\s)|(?<=^))'  # Positive lookbehind for space or start of string
+        r'(?:https?://|www\.)?'  # Optional scheme
+        r'(?:\[[A-Fa-f0-9:]+\]|localhost|(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,})'  # IPv6, localhost, or domain
+        r'(?:\:\d{1,5})?'  # Optional port
+        r'(?:/\S*)?',  # Optional path, query, fragment
         re.IGNORECASE
     )
 
-    # Extract URLs using regex
-    regex_urls = re.findall(url_pattern, content)
+    # Extract URLs using re.finditer to capture full matches
+    regex_urls = [match.group(0) for match in url_pattern.finditer(content)]
     potential_urls.extend(regex_urls)
     logger.debug(f"URLs extracted via regex: {regex_urls}")
 
@@ -105,10 +100,17 @@ def extract_valid_urls(content: str, entity_urls: Optional[List[str]] = None) ->
         # Validate URL
         if is_valid_url(cleaned_url):
             # Additional check to ensure the URL is not part of an email
-            # For example, ensure there's no '@' symbol immediately before the URL
-            start_index = content.find(url)
-            if start_index > 0 and content[start_index - 1] == '@':
-                logger.debug(f"URL '{cleaned_url}' is part of an email and will be skipped.")
+            # Use regex to find the specific occurrence
+            pattern = re.escape(url)
+            matches = list(re.finditer(pattern, content))
+            skip = False
+            for match_obj in matches:
+                start_index = match_obj.start()
+                if start_index > 0 and content[start_index - 1] == '@':
+                    logger.debug(f"URL '{cleaned_url}' is part of an email and will be skipped.")
+                    skip = True
+                    break
+            if skip:
                 continue  # Skip URLs that are part of an email address
             extracted_urls.append(cleaned_url)
             logger.debug(f"Valid URL added: '{cleaned_url}'")
