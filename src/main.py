@@ -13,7 +13,6 @@ from contextlib import asynccontextmanager
 import uvicorn
 from fastapi import FastAPI, Request, BackgroundTasks
 from pydantic import BaseModel
-
 from telegram.ext import Application
 
 import config
@@ -22,9 +21,10 @@ from utils.telegram_helper import TelegramHelper
 from utils.mongo_aio import Mongo
 from utils.pagerduty import sendAlert
 from utils.url_helper import normalize_url
+from utils.logging_helper import setup_logging
 
-logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
+# Setup logging
+logger = setup_logging(log_file='logs/main.log', level=logging.INFO)
 
 # Initialize Application with increased connection pool size
 application = (
@@ -180,4 +180,10 @@ async def mentor(request: Request, background_tasks: BackgroundTasks):
         return {"status": "ok"}
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=6010, reload=True)
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=6010,
+        reload=True,
+        log_config=None  # Disable Uvicorn's default log configuration
+    )

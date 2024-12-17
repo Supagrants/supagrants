@@ -1,7 +1,9 @@
+# gemini_embedder.py
+
 from typing import Optional, Dict, List, Tuple, Any, Union
+import logging
 
 from phi.embedder.base import Embedder
-from phi.utils.log import logger
 
 try:
     import google.generativeai as genai
@@ -9,6 +11,8 @@ try:
 except ImportError:
     logger.error("`google-generativeai` not installed. Please install it using `pip install google-generativeai`")
     raise
+
+logger = logging.getLogger(__name__)
 
 
 class GeminiEmbedder(Embedder):

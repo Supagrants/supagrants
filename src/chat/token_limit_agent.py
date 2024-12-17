@@ -1,15 +1,16 @@
 # token_limit_agent.py
 
+import logging
 from typing import Any, List, Optional, Tuple, Union, Dict
 from collections import deque
-
 from phi.model.message import Message
 from phi.agent import Agent
-from phi.utils.log import logger
 from config import TOKEN_LIMIT, TOOL_MESSAGE_CHAR_TRUNCATE_LIMIT, MAX_HISTORY
 
-RESET_KEYWORD = '/reset'
+# Setup logging
+logger = logging.getLogger(__name__)
 
+RESET_KEYWORD = '/reset'
 
 class TokenLimitAgent(Agent):
     """
@@ -24,8 +25,6 @@ class TokenLimitAgent(Agent):
         """
         super().__init__(*args, **kwargs)
         self.num_history_responses = MAX_HISTORY
-
-    # Maximum allowed characters for a truncated 'tool' message
 
     def get_messages_for_run(
         self,
@@ -61,7 +60,6 @@ class TokenLimitAgent(Agent):
 
         # If we found a reset message, filter out all messages before it, but keep the system message
         if reset_index is not None:
-            # Keep the system message and messages after the last reset
             messages_for_model = [messages_for_model[0]] + messages_for_model[reset_index + 1:]
             logger.debug(f"Messages after last reset: {len(messages_for_model)} messages.")
 
@@ -78,7 +76,6 @@ class TokenLimitAgent(Agent):
 
         # Identify all 'tool' messages in chronological order
         tool_messages = [msg for msg in messages_for_model if msg.role == 'tool']
-
         logger.debug(f"Number of 'tool' messages: {len(tool_messages)}")
 
         # Use a deque for efficient popping from the left (oldest messages)
@@ -104,7 +101,6 @@ class TokenLimitAgent(Agent):
                     f"New total tokens: {total_tokens}"
                 )
             else:
-                # If the message is already short, skip truncation
                 logger.debug(
                     f"Skipped truncating a 'tool' message as it is already within the truncate limit."
                 )
@@ -113,7 +109,6 @@ class TokenLimitAgent(Agent):
             logger.warning(
                 f"Unable to reduce token count to {TOKEN_LIMIT}. Current tokens: {total_tokens}"
             )
-            # Optionally, implement further strategies here (e.g., truncating non-'tool' messages)
         else:
             logger.debug("Token limit enforced successfully through message truncation.")
 

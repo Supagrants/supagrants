@@ -1,4 +1,8 @@
+# selenium_agent.py
+
 from typing import Optional
+import random
+
 from phi.agent import Agent
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -6,7 +10,6 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.keys import Keys
-import random
 
 class SeleniumAgent(Agent):
     def __init__(

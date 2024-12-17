@@ -1,8 +1,12 @@
-from config import PAGERDUTY, PAGERDUTY_INACTIVE, logger
+import logging
+
+from config import PAGERDUTY, PAGERDUTY_INACTIVE
 from utils import fetch
 
 API_ALERT = 'https://events.pagerduty.com/v2/enqueue'
 
+
+logger = logging.getLogger(__name__)
 
 async def sendAlert(event, key=None, isResolve=False):
     summary = f'ALERT: {event}'

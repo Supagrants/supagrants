@@ -12,7 +12,6 @@ from pydantic import BaseModel
 from phi.document import Document
 from phi.knowledge.agent import AgentKnowledge
 from phi.vectordb.pgvector import PgVector
-from phi.utils.log import logger
 from bs4 import BeautifulSoup
 import aiohttp
 from sqlalchemy import text
@@ -22,6 +21,9 @@ from utils.llm_helper import get_embedder
 from utils.url_helper import is_valid_url, normalize_url
 
 MAX_CHUNK_SIZE = 9000  # bytes
+
+# Setup logging
+logger = logging.getLogger(__name__)
 
 class CustomKnowledgeBase(AgentKnowledge):
     """

@@ -1,10 +1,14 @@
 """
 4.2
 """
+import logging
+
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import ReplaceOne
 
-from config import MONGO_SERVER, MONGO_PORT, MONGO_DB, MONGO_CONNECTION, logger
+from config import MONGO_SERVER, MONGO_PORT, MONGO_DB, MONGO_CONNECTION
+
+logger = logging.getLogger(__name__)
 
 
 class Mongo():

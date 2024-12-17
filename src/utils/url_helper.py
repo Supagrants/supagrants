@@ -5,6 +5,7 @@ from typing import List, Optional
 from urllib.parse import urlparse, urlunparse, quote, unquote
 import logging
 
+# Configure logger for this module
 logger = logging.getLogger(__name__)
 
 def is_valid_url(url: str) -> bool:
@@ -17,6 +18,7 @@ def is_valid_url(url: str) -> bool:
     Returns:
         bool: True if valid, False otherwise.
     """
+    logger.debug(f"Validating URL: '{url}'")
     # Comprehensive URL regex pattern with named groups
     url_regex = re.compile(
         r'^(?P<scheme>https?://)'  # scheme
@@ -61,7 +63,7 @@ def extract_valid_urls(content: str, entity_urls: Optional[List[str]] = None) ->
     Returns:
         List[str]: A list of validated and cleaned URLs.
     """
-    # Initialize list to hold potential URLs
+    logger.debug(f"Extracting URLs from content: '{content[:50]}...'")
     potential_urls = []
 
     # Improved regex pattern to match full URLs, including IPv6 and ports
@@ -100,7 +102,6 @@ def extract_valid_urls(content: str, entity_urls: Optional[List[str]] = None) ->
         # Validate URL
         if is_valid_url(cleaned_url):
             # Additional check to ensure the URL is not part of an email
-            # Use regex to find the specific occurrence
             pattern = re.escape(url)
             matches = list(re.finditer(pattern, content))
             skip = False
@@ -140,6 +141,7 @@ def normalize_url(url: str) -> str:
         str: Normalized URL as string.
     """
     try:
+        logger.debug(f"Normalizing URL: '{url}'")
         parsed = urlparse(url)
         scheme = parsed.scheme.lower()
         netloc = parsed.netloc.lower()
@@ -186,6 +188,7 @@ def get_domain(url: str) -> str:
         str: The domain of the URL.
     """
     try:
+        logger.debug(f"Extracting domain from URL: '{url}'")
         parsed = urlparse(url)
         domain = parsed.hostname.lower() if parsed.hostname else ''
         logger.debug(f"Extracted domain '{domain}' from URL '{url}'.")
@@ -205,6 +208,7 @@ def strip_query_and_fragment(url: str) -> str:
         str: The URL without query and fragment.
     """
     try:
+        logger.debug(f"Stripping query and fragment from URL: '{url}'")
         parsed = urlparse(url)
         stripped_url = urlunparse((parsed.scheme, parsed.netloc, parsed.path, '', '', ''))
         logger.debug(f"Stripped URL: Original='{url}' | Stripped='{stripped_url}'")

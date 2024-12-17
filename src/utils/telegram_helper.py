@@ -13,6 +13,7 @@ from chatgpt_md_converter import telegram_format
 
 from utils.url_helper import is_valid_url, extract_valid_urls
 
+# Configure logger for this module
 logger = logging.getLogger(__name__)
 
 class TelegramHelper:
@@ -29,9 +30,11 @@ class TelegramHelper:
         self.DOWNLOAD_DIR = download_dir
         if not os.path.exists(self.DOWNLOAD_DIR):
             os.makedirs(self.DOWNLOAD_DIR)
+            logger.info(f"Created download directory: {self.DOWNLOAD_DIR}")
         
         # Initialize semaphore for rate limiting
         self.rate_limiter = asyncio.Semaphore(rate_limit)
+        logger.info(f"Rate limiter initialized with {rate_limit} limit.")
 
     async def send_message(self, chat_id: int, text: str) -> None:
         """
@@ -49,6 +52,7 @@ class TelegramHelper:
                     text=formatted_text,
                     parse_mode=ParseMode.HTML
                 )
+                logger.debug(f"Message sent to chat {chat_id}.")
             except Exception as e:
                 logger.error(f"Failed to send message to chat {chat_id}: {e}")
                 raise
@@ -69,6 +73,7 @@ class TelegramHelper:
                     self.bot.send_message(chat_id=chat_id, text=formatted_text, parse_mode=ParseMode.HTML),
                     timeout=timeout
                 )
+            logger.info(f"Message sent to chat {chat_id} within timeout.")
         except asyncio.TimeoutError:
             logger.warning(f"Message to {chat_id} timed out.")
         except Exception as e:
@@ -87,23 +92,20 @@ class TelegramHelper:
         for attempt in range(retries):
             try:
                 await self.send_message(chat_id, text)
+                logger.info(f"Message successfully sent to chat {chat_id} on attempt {attempt + 1}.")
                 return
             except TimedOut as e:
                 if attempt < retries - 1:
-                    logger.warning(f"Retrying message to {chat_id} (attempt {attempt + 1})")
+                    logger.warning(f"Retrying message to {chat_id} (attempt {attempt + 1}) due to timeout.")
                     await asyncio.sleep(2)  # Backoff before retrying
                 else:
-                    logger.error(f"Failed to send message after {retries} attempts: {e}")
+                    logger.error(f"Failed to send message to chat {chat_id} after {retries} attempts: {e}")
                     raise
             except Exception as e:
-                logger.error(f"Error sending message: {e}")
+                logger.error(f"Error sending message to chat {chat_id}: {e}")
                 raise
 
-    async def process_update(
-            self,
-            update_data: dict,
-            handle: str = ''
-    ) -> Optional[dict]:
+    async def process_update(self, update_data: dict, handle: str = '') -> Optional[dict]:
         """
         Process a Telegram update and return structured data.
 
@@ -118,9 +120,11 @@ class TelegramHelper:
             update = Update.de_json(update_data, self.bot)
             message = update.effective_message
             if not message:
+                logger.warning("Received empty message in update.")
                 return None
 
             content = message.text or message.caption or ''
+            logger.debug(f"Processing message from chat {message.chat.id}: {content[:50]}...")
 
             if handle and handle in content:
                 content = content.replace(handle, '').strip()
@@ -149,6 +153,7 @@ class TelegramHelper:
                     'file_size': message.document.file_size,
                     'file_url': file.file_path
                 }
+                logger.info(f"Processed document from message: {file_info['file_name']}")
             elif message.photo:
                 photo = message.photo[-1]
                 file = await photo.get_file()
@@ -159,6 +164,7 @@ class TelegramHelper:
                     'file_size': photo.file_size,
                     'file_url': file.file_path
                 }
+                logger.info(f"Processed photo from message: {file_info['file_name']}")
             elif message.video:
                 file = await message.video.get_file()
                 file_info = {
@@ -168,6 +174,7 @@ class TelegramHelper:
                     'file_size': message.video.file_size,
                     'file_url': file.file_path
                 }
+                logger.info(f"Processed video from message: {file_info['file_name']}")
 
             new_members = [
                 member.to_dict() for member in message.new_chat_members

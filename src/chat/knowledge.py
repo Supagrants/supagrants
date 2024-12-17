@@ -1,10 +1,15 @@
 # knowledge.py
 
-from phi.vectordb.pgvector import PgVector
-from utils.llm_helper import get_embedder
+import logging
 
+from phi.vectordb.pgvector import PgVector
+
+from utils.llm_helper import get_embedder
 from .custom_knowledge_base import CustomKnowledgeBase
 from config import POSTGRES_CONNECTION
+
+# Setup logging
+logger = logging.getLogger(__name__)
 
 # Initialize a unified PgVector for all documents
 vector_db = PgVector(
@@ -20,3 +25,5 @@ knowledge_base = CustomKnowledgeBase(
     ],
     vector_db=vector_db,
 )
+
+logger.info("Knowledge base initialized with vector DB.")

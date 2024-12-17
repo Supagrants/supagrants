@@ -1,5 +1,7 @@
 # router.py
 
+import logging
+
 from phi.agent import Agent, RunResponse, AgentMemory
 from phi.memory.db.postgres import PgMemoryDb
 from phi.storage.agent.postgres import PgAgentStorage
@@ -12,12 +14,16 @@ from config import OPENAI_API_KEY
 from config import POSTGRES_CONNECTION
 from utils.llm_helper import get_llm_model
 
+# Setup logging
+logger = logging.getLogger(__name__)
 
 async def next_action(msg: str, user_id: str, mongo, reply_function=None, processing_id=None):
+    logger.debug(f"Starting next action for user {user_id} with message: {msg[:50]}...")
+
     agent = TokenLimitAgent(
         name="Chat Agent",
         model=get_llm_model(),
-        session_id='main',# todo replace with group / chat
+        session_id='main',  # todo replace with group / chat
         user_id=user_id,
         # memory=AgentMemory(
         #     db=PgMemoryDb(table_name="agent_memory", db_url=POSTGRES_CONNECTION), 
@@ -36,7 +42,16 @@ async def next_action(msg: str, user_id: str, mongo, reply_function=None, proces
         tools=[DuckDuckGo()],
         telemetry=False,
     )
-    response: RunResponse = agent.run(msg)
-    if reply_function:
-        await reply_function(response.get_content_as_string())
-    return
+    try:
+        response: RunResponse = agent.run(msg)
+        logger.debug(f"Agent response generated successfully for user {user_id}.")
+        
+        if reply_function:
+            await reply_function(response.get_content_as_string())
+        
+        return
+    except Exception as e:
+        logger.error(f"Error during agent action for user {user_id}: {str(e)}")
+        raise
+
+

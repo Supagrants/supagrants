@@ -4,9 +4,9 @@ import asyncio
 from typing import Optional, Set, AsyncGenerator, Tuple, Callable
 from urllib.parse import urljoin, urlparse, urldefrag
 import re
+import logging
 
 from phi.tools import Toolkit
-from phi.utils.log import logger
 from markdown import markdown
 from bs4 import BeautifulSoup
 
@@ -16,6 +16,8 @@ except ImportError:
     raise ImportError("crawl4ai not installed. Please install using pip install crawl4ai")
 
 from utils.url_helper import is_valid_url, normalize_url
+
+logger = logging.getLogger(__name__)
 
 
 class Crawl4aiTools(Toolkit):

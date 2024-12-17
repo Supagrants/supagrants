@@ -11,12 +11,6 @@ def get_project_root() -> Path:
     return Path(__file__).parent.parent
 
 
-logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)s: %(message)s',
-                    datefmt='%Y-%m-%d %H:%M:%S',
-                    level=logging.INFO)
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-
 ENVIRONMENT = os.getenv("ENVIRONMENT", "")
 
 MONGO_SERVER = os.getenv("MONGO_SERVER", "localhost")
