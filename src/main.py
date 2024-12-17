@@ -15,13 +15,13 @@ from fastapi import FastAPI, Request, BackgroundTasks
 from pydantic import BaseModel
 from telegram.ext import Application
 
-import config
 from chat import router, knowledge, crawler
 from utils.telegram_helper import TelegramHelper
 from utils.mongo_aio import Mongo
 from utils.pagerduty import sendAlert
 from utils.url_helper import normalize_url
 from utils.logging_helper import setup_logging
+from config import TELEGRAM_BOT, TELEGRAM_BOT_HANDLE
 
 # Setup logging
 logger = setup_logging(log_file='logs/main.log', level=logging.INFO)
@@ -29,7 +29,7 @@ logger = setup_logging(log_file='logs/main.log', level=logging.INFO)
 # Initialize Application with increased connection pool size
 application = (
     Application.builder()
-    .token(config.TELEGRAM_BOT)
+    .token(TELEGRAM_BOT)
     .connection_pool_size(100)  # Adjust this number based on your requirements
     .build()
 )
@@ -53,23 +53,24 @@ async def lifespan(app: FastAPI):
     Lifespan event handler for FastAPI.
     Handles startup and shutdown events.
     """
-    logger.info("Starting up the application.")
+    try:
+        logger.info("Starting up the application.")
 
-    # Properly start the Telegram bot
-    await application.initialize()
-    await application.start()
+        # Properly start the Telegram bot
+        await application.initialize()
+        await application.start()
 
-    # If you have other startup tasks, do them here (Mongo connections, etc.)
-    # But the prompt states "We're NOT connecting to MongoDB here as per the user's request."
-    yield
+        # If you have other startup tasks, do them here (Mongo connections, etc.)
+        # But the prompt states "We're NOT connecting to MongoDB here as per the user's request."
+        yield
+    finally:
+        logger.info("Shutting down the application.")
 
-    logger.info("Shutting down the application.")
+        # Properly stop the Telegram bot
+        await application.stop()
+        await application.shutdown()
 
-    # Properly stop the Telegram bot
-    await application.stop()
-    await application.shutdown()
-
-    # If you have other shutdown tasks, finalize them here.
+        # If you have other shutdown tasks, finalize them here.
 
 # Assign the lifespan handler to the FastAPI app
 app = FastAPI(lifespan=lifespan)
@@ -83,7 +84,7 @@ async def tasks_post():
 async def mentor(request: Request, background_tasks: BackgroundTasks):
     text = ''
     try:
-        handle = config.TELEGRAM_BOT_HANDLE
+        handle = TELEGRAM_BOT_HANDLE
         json_data = await request.json()
         params = await tg.process_update(json_data, handle=handle)
         if not params:
