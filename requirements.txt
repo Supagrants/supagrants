@@ -11,6 +11,7 @@ fastapi
 # agents_tasks service
 openai
 anthropic
+google-generativeai
 requests_oauthlib
 
 # telegram
