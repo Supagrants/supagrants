@@ -14,6 +14,7 @@ import uvicorn
 from fastapi import FastAPI, Request, BackgroundTasks
 from pydantic import BaseModel
 from telegram.ext import Application
+from dotenv import load_dotenv
 
 from chat import router, knowledge, crawler
 from utils.telegram_helper import TelegramHelper
@@ -22,6 +23,8 @@ from utils.pagerduty import sendAlert
 from utils.url_helper import normalize_url
 from utils.logging_helper import setup_logging
 from config import TELEGRAM_BOT, TELEGRAM_BOT_HANDLE
+
+load_dotenv()
 
 # Setup logging
 logger = setup_logging(log_file='logs/main.log', level=logging.INFO)

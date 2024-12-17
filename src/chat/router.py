@@ -10,7 +10,6 @@ from phi.tools.duckduckgo import DuckDuckGo
 from chat import prompts, knowledge
 from chat.token_limit_agent import TokenLimitAgent
 from chat.prompts.prompts_medium import ABOUT
-from config import OPENAI_API_KEY
 from config import POSTGRES_CONNECTION
 from utils.llm_helper import get_llm_model
 
