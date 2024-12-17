@@ -1,14 +1,26 @@
-# Use the base image
-FROM tiangolo/uvicorn-gunicorn-fastapi:python3.11
+# Use Playwright base image with Ubuntu 22.04.4 LTS (v1.49.0)
+FROM mcr.microsoft.com/playwright:v1.49.0-jammy
 
 # Set the working directory
 WORKDIR /app
 
+# Install Python and pip (only necessary dependencies)
+RUN apt-get update && apt-get install -y \
+    python3.11 \
+    python3-pip \
+    libpq-dev \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy the requirements file first to leverage Docker's caching mechanism
 COPY requirements.txt /app/
 
-# Install the dependencies
+# Install the Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Install Playwright and its browser binaries (for crawling)
+RUN pip install playwright
+RUN playwright install
 
 # Copy the rest of the application code
 COPY src /app/
@@ -16,5 +28,5 @@ COPY src /app/
 # Expose the port (if necessary)
 EXPOSE 6010
 
-# Command to run the FastAPI app using Uvicorn
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "6010", "--reload"]
+# Command to run the FastAPI app using Uvicorn with multiple workers
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "6010", "--reload", "--workers", "4"]
