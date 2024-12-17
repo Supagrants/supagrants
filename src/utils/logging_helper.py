@@ -36,7 +36,8 @@ def setup_logging(log_file='logs/main.log', level=logging.INFO) -> logging.Logge
         omit_repeated_times=False,
         rich_tracebacks=True, 
         show_path=True,
-        tracebacks_show_locals=False
+        tracebacks_show_locals=False,
+        locals_max_string=None,
     )
     rich_handler.setLevel(level)
 
