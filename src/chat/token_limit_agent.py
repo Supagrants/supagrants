@@ -6,7 +6,7 @@ from collections import deque
 from phi.model.message import Message
 from phi.agent import Agent
 from phi.utils.log import logger
-from config import TOKEN_LIMIT, TOOL_MESSAGE_CHAR_TRUNCATE_LIMIT
+from config import TOKEN_LIMIT, TOOL_MESSAGE_CHAR_TRUNCATE_LIMIT, MAX_HISTORY
 
 
 class TokenLimitAgent(Agent):
@@ -15,6 +15,13 @@ class TokenLimitAgent(Agent):
     It truncates the content of the oldest 'tool' messages to the first 1000 characters
     until the total token count is within the specified limit.
     """
+
+    def __init__(self, *args, **kwargs):
+        """
+        Initialize TokenLimitAgent and override num_history_responses.
+        """
+        super().__init__(*args, **kwargs)
+        self.num_history_responses = MAX_HISTORY
 
     # Maximum allowed characters for a truncated 'tool' message
 

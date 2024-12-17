@@ -6,7 +6,7 @@ from phi.model.openai import OpenAIChat
 from phi.model.google import Gemini
 from phi.embedder.openai import OpenAIEmbedder
 from utils.gemini_embedder import GeminiEmbedder
-from config import OPENAI_API_KEY, GOOGLE_API_KEY, LLM_PROVIDER
+from config import OPENAI_API_KEY, OPENAI_MODEL, GOOGLE_API_KEY, LLM_PROVIDER
 
 # Configure logger for this module
 logger = logging.getLogger(__name__)
@@ -30,7 +30,7 @@ def get_llm_model():
         if not OPENAI_API_KEY:
             raise ValueError("OPENAI_API_KEY is not set in config.py or environment variables.")
         logger.info("Using OpenAI LLM model.")
-        return OpenAIChat(id="gpt-4o", api_key=OPENAI_API_KEY)
+        return OpenAIChat(id=OPENAI_MODEL, api_key=OPENAI_API_KEY)
     elif provider == "gemini":
         logger.info("Using Gemini LLM model.")
         return Gemini(id="gemini-2.0-flash-exp", api_key=GOOGLE_API_KEY)
@@ -39,7 +39,7 @@ def get_llm_model():
         logger.warning(f"Unsupported LLM_PROVIDER '{LLM_PROVIDER}'. Defaulting to OpenAI.")
         if not OPENAI_API_KEY:
             raise ValueError("OPENAI_API_KEY is not set in config.py or environment variables.")
-        return OpenAIChat(id="gpt-4o", api_key=OPENAI_API_KEY)
+        return OpenAIChat(id=OPENAI_MODEL, api_key=OPENAI_API_KEY)
 
 
 def get_embedder():

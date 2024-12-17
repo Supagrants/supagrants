@@ -37,6 +37,7 @@ PAGERDUTY = os.getenv("PAGERDUTY", "")
 # AI
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai").lower()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
 GROK_API_KEY = os.getenv("GROK_API_KEY", "")
 CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY", "")
@@ -48,3 +49,4 @@ GITHUB_ACCESS_TOKEN = os.getenv("GITHUB_ACCESS_TOKEN", "")
 # Chat
 TOKEN_LIMIT = int(os.getenv("TOKEN_LIMIT", 28000))
 TOOL_MESSAGE_CHAR_TRUNCATE_LIMIT = int(os.getenv("TOOL_MESSAGE_CHAR_TRUNCATE_LIMIT", 1000))
+MAX_HISTORY = int(os.getenv("MAX_HISTORY", 10))
