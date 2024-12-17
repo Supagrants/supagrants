@@ -90,7 +90,7 @@ async def mentor(request: Request, background_tasks: BackgroundTasks):
             return {"status": "ok"}
 
         async def telegram_reply(msg):
-            await tg.send_message(params['chat_id'], msg)
+            await tg.send_message_with_retry(params['chat_id'], msg)
 
         # Ignore if message is from bot or no content
         if not params or params['is_bot'] or (not params['content'] and not params['file']):

@@ -1,5 +1,3 @@
-# utils/telegram_helper.py
-
 import os
 import re
 import logging
@@ -50,6 +48,52 @@ class TelegramHelper:
                 )
             except Exception as e:
                 logger.error(f"Failed to send message to chat {chat_id}: {e}")
+                raise
+
+    async def send_message_with_timeout(self, chat_id: int, text: str, timeout: int = 30):
+        """
+        Send a message with a timeout, retrying in case of a timeout error.
+
+        Args:
+            chat_id (int): The chat ID to send the message to.
+            text (str): The message text.
+            timeout (int): Timeout in seconds.
+        """
+        formatted_text = telegram_format(text)
+        try:
+            async with self.rate_limiter:
+                await asyncio.wait_for(
+                    self.bot.send_message(chat_id=chat_id, text=formatted_text, parse_mode=ParseMode.HTML),
+                    timeout=timeout
+                )
+        except asyncio.TimeoutError:
+            logger.warning(f"Message to {chat_id} timed out.")
+        except Exception as e:
+            logger.error(f"Failed to send message to chat {chat_id}: {e}")
+            raise
+
+    async def send_message_with_retry(self, chat_id: int, text: str, retries: int = 3):
+        """
+        Attempt to send a message with retries in case of failure.
+
+        Args:
+            chat_id (int): The chat ID to send the message to.
+            text (str): The message text.
+            retries (int): Number of retry attempts in case of failure.
+        """
+        for attempt in range(retries):
+            try:
+                await self.send_message(chat_id, text)
+                return
+            except telegram.error.TimedOut as e:
+                if attempt < retries - 1:
+                    logger.warning(f"Retrying message to {chat_id} (attempt {attempt + 1})")
+                    await asyncio.sleep(2)  # Backoff before retrying
+                else:
+                    logger.error(f"Failed to send message after {retries} attempts: {e}")
+                    raise
+            except Exception as e:
+                logger.error(f"Error sending message: {e}")
                 raise
 
     async def process_update(
