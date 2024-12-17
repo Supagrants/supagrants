@@ -7,6 +7,7 @@ from phi.tools.duckduckgo import DuckDuckGo
 
 from chat import prompts, knowledge
 from chat.token_limit_agent import TokenLimitAgent
+from chat.prompts.prompts_short import ABOUT
 from config import OPENAI_API_KEY
 from config import POSTGRES_CONNECTION
 from utils.llm_helper import get_llm_model
@@ -26,11 +27,11 @@ async def next_action(msg: str, user_id: str, mongo, reply_function=None, proces
         # ),
         storage=PgAgentStorage(table_name="agent_sessions", db_url=POSTGRES_CONNECTION),
         num_history_responses=10,
-        description=prompts.ABOUT,
+        description=ABOUT,
         add_datetime_to_instructions=True,
         add_history_to_messages=True,
         read_chat_history=True,
-        knowledge=knowledge.knowledge_base, # todo how to combine with text_knowledge_base
+        knowledge=knowledge.knowledge_base,
         search_knowledge=True,
         tools=[DuckDuckGo()],
         telemetry=False,
