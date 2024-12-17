@@ -1,10 +1,9 @@
+# logging_helper.py
+
 import time
 import logging
 import os
 from datetime import datetime, timedelta
-
-from rich.logging import RichHandler
-
 
 def setup_logging(log_file='logs/main.log', level=logging.INFO) -> logging.Logger:
     """
@@ -28,20 +27,7 @@ def setup_logging(log_file='logs/main.log', level=logging.INFO) -> logging.Logge
     logger = logging.getLogger()
     logger.setLevel(level)
 
-    # Rich console handler (for console output)
-    rich_handler = RichHandler(
-        show_level=True,
-        show_time=True, 
-        log_time_format='%Y-%m-%d %H:%M:%S',
-        omit_repeated_times=False,
-        rich_tracebacks=True, 
-        show_path=True,
-        tracebacks_show_locals=False,
-        locals_max_string=None,
-    )
-    rich_handler.setLevel(level)
-
-    # Define the ISO8601 formatter for file logs
+    # Define the ISO8601 formatter for both file and stream logs
     formatter = logging.Formatter(
         '%(asctime)s %(levelname)s [%(module)s]: %(message)s', 
         datefmt='%Y-%m-%dT%H:%M:%SZ'
@@ -55,8 +41,13 @@ def setup_logging(log_file='logs/main.log', level=logging.INFO) -> logging.Logge
     file_handler.setFormatter(formatter)
     file_handler.setLevel(level)
 
+    # Stream handler (for console output)
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+    stream_handler.setLevel(level)
+
     # Add handlers to the logger
-    logger.addHandler(rich_handler)
     logger.addHandler(file_handler)
+    logger.addHandler(stream_handler)
 
     return logger
