@@ -1,3 +1,5 @@
+# utils/telegram_helper.py
+
 import os
 import re
 import logging
@@ -5,6 +7,7 @@ from typing import Optional
 import asyncio
 
 from telegram import Update, Bot, MessageEntity
+from telegram.error import TimedOut
 from telegram.constants import ParseMode
 from chatgpt_md_converter import telegram_format
 
@@ -85,7 +88,7 @@ class TelegramHelper:
             try:
                 await self.send_message(chat_id, text)
                 return
-            except telegram.error.TimedOut as e:
+            except TimedOut as e:
                 if attempt < retries - 1:
                     logger.warning(f"Retrying message to {chat_id} (attempt {attempt + 1})")
                     await asyncio.sleep(2)  # Backoff before retrying
