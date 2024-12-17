@@ -72,10 +72,11 @@ def extract_valid_urls(content: str, entity_urls: Optional[List[str]] = None) ->
     # Define a robust regex pattern to extract URLs with or without schemes
     # Added negative lookbehind to ensure URLs are not preceded by '@' (to ignore emails)
     url_pattern = re.compile(
-        r'(?<!@)'  # Negative lookbehind to ensure no '@' before the URL
-        r'(?:(?:https?://)?(?:www\.)?'
-        r'[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
-        r'(?:/[^\s.,;!?)"\']*)?)', re.IGNORECASE
+        r'(?<![\w.-])'
+        r'(?:https?://|www\.)?'
+        r'([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}'
+        r'(?:/[^\s.,;!?)"\']*)?',
+        re.IGNORECASE
     )
 
     # Extract URLs using regex
