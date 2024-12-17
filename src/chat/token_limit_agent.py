@@ -8,6 +8,8 @@ from phi.agent import Agent
 from phi.utils.log import logger
 from config import TOKEN_LIMIT, TOOL_MESSAGE_CHAR_TRUNCATE_LIMIT, MAX_HISTORY
 
+RESET_KEYWORD = '/reset'
+
 
 class TokenLimitAgent(Agent):
     """
@@ -48,6 +50,20 @@ class TokenLimitAgent(Agent):
             messages=messages,
             **kwargs,
         )
+            
+        # Find the index of the last /reset message, ensuring to skip the system message
+        reset_index = None
+        for i in range(len(messages_for_model) - 1, -1, -1):  # Iterate in reverse order
+            msg = messages_for_model[i]
+            if msg.content is not None and RESET_KEYWORD in msg.content.lower() and msg.role != 'system':  # content: '@<id>: /reset'
+                reset_index = i
+                break
+
+        # If we found a reset message, filter out all messages before it, but keep the system message
+        if reset_index is not None:
+            # Keep the system message and messages after the last reset
+            messages_for_model = [messages_for_model[0]] + messages_for_model[reset_index + 1:]
+            logger.debug(f"Messages after last reset: {len(messages_for_model)} messages.")
 
         # Calculate the total approximate token count
         total_char_count = sum(len(msg.content) for msg in messages_for_model if msg.content)
