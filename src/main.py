@@ -102,8 +102,16 @@ async def mentor(request: Request, background_tasks: BackgroundTasks):
 
         # Handle document
         if params['file']:
-            await knowledge.handle_document(params['file'])
-            text = f"SYSTEM: Document added to knowledge base {params['file']['file_name']}"
+            file_info = params['file']
+            mime_type = file_info.get('mime_type')
+            if mime_type == 'application/pdf':
+                await knowledge.knowledge_base.handle_pdf_file(file_info)
+            elif mime_type == 'text/plain':
+                await knowledge.knowledge_base.handle_txt_file(file_info)
+            else:
+                logger.warning(f"Unsupported MIME type: {mime_type}")
+
+            text = f"SYSTEM: Document added to knowledge base {file_info['file_name']}"
 
         # Handle URLs
         if params.get('urls'):
@@ -149,7 +157,7 @@ async def mentor(request: Request, background_tasks: BackgroundTasks):
                     if page_count > 0:
                         await telegram_reply(f"Total {page_count} pages from the URL: {url} are indexed successfully.")
                     else:
-                        await telegram_reply(f"No pages were indexed from the URL: {url}")
+                        await telegram_reply(f"No new pages were indexed from the URL: {url}")
 
                     logger.info(f"Crawling completed for URL: {url} with {page_count} pages indexed.")
 

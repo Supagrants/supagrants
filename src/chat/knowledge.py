@@ -23,17 +23,3 @@ knowledge_base = CustomKnowledgeBase(
     ],
     vector_db=vector_db,
 )
-
-# Function to initialize all vector databases
-async def initialize_knowledge_base():
-    await vector_db.initialize()
-
-async def handle_document(file_info: dict):
-    mime_type = file_info.get('mime_type')
-    if mime_type == 'application/pdf':
-        await knowledge_base.handle_pdf_file(file_info)
-    elif mime_type == 'text/plain':
-        await knowledge_base.handle_txt_file(file_info)
-    else:
-        logger.warning(f"Unsupported MIME type: {mime_type}")
-    return
