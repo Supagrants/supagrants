@@ -1,4 +1,4 @@
-# prompts.py
+# prompts_long.py
 
 ABOUT = """
 # ABOUT

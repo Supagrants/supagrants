@@ -1,4 +1,4 @@
-# prompts.py
+# prompts_eliza.py
 
 ABOUT = f"""
 ABOUT
