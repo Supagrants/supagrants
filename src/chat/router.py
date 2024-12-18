@@ -10,7 +10,7 @@ from phi.tools.duckduckgo import DuckDuckGo
 from chat import prompts, knowledge
 from chat.token_limit_agent import TokenLimitAgent
 from chat.prompts.prompts_medium import ABOUT
-from config import POSTGRES_CONNECTION
+from config import POSTGRES_CONNECTION, MAX_HISTORY
 from utils.llm_helper import get_llm_model
 
 # Setup logging
@@ -31,7 +31,7 @@ async def next_action(msg: str, user_id: str, mongo, reply_function=None, proces
         #     num_memories=10,
         # ),
         storage=PgAgentStorage(table_name="agent_sessions", db_url=POSTGRES_CONNECTION),
-        num_history_responses=10,
+        num_history_responses=MAX_HISTORY,
         description=ABOUT,
         add_datetime_to_instructions=True,
         add_history_to_messages=True,

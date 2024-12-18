@@ -19,13 +19,6 @@ class TokenLimitAgent(Agent):
     until the total token count is within the specified limit.
     """
 
-    def __init__(self, *args, **kwargs):
-        """
-        Initialize TokenLimitAgent and override num_history_responses.
-        """
-        super().__init__(*args, **kwargs)
-        self.num_history_responses = MAX_HISTORY
-
     def get_messages_for_run(
         self,
         *,
