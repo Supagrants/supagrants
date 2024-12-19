@@ -2,6 +2,10 @@ import logging
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 def get_project_root() -> Path:
     return Path(__file__).parent.parent
