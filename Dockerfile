@@ -26,7 +26,7 @@ RUN playwright install
 COPY src /app/
 
 # Expose the port (if necessary)
-EXPOSE 6010
+EXPOSE 80
 
 # Command to run the FastAPI app using Uvicorn with multiple workers
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "6010", "--reload", "--workers", "4"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80", "--reload", "--workers", "4"]
