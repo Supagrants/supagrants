@@ -23,6 +23,7 @@ from utils.pagerduty import sendAlert
 from utils.url_helper import normalize_url
 from utils.logging_helper import setup_logging
 from config import TELEGRAM_BOT, TELEGRAM_BOT_HANDLE
+from telegram import ReplyKeyboardMarkup
 
 load_dotenv()
 
@@ -33,7 +34,7 @@ logger = setup_logging(log_file='logs/main.log', level=logging.INFO)
 application = (
     Application.builder()
     .token(TELEGRAM_BOT)
-    .connection_pool_size(100)  # Adjust this number based on your requirements
+    .connection_pool_size(100)
     .build()
 )
 
@@ -43,12 +44,15 @@ tg = TelegramHelper(application.bot)
 # Initialize MongoDB without connecting on startup
 mongo = Mongo()
 
+
 class TelegramUpdate(BaseModel):
     update_id: int
     message: dict
 
+
 class ApiCall(BaseModel):
     token: str
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -62,26 +66,85 @@ async def lifespan(app: FastAPI):
         # Properly start the Telegram bot
         await application.initialize()
         await application.start()
-
-        # If you have other startup tasks, do them here (Mongo connections, etc.)
-        # But the prompt states "We're NOT connecting to MongoDB here as per the user's request."
         yield
     finally:
         logger.info("Shutting down the application.")
-
-        # Properly stop the Telegram bot
         await application.stop()
         await application.shutdown()
 
-        # If you have other shutdown tasks, finalize them here.
 
 # Assign the lifespan handler to the FastAPI app
 app = FastAPI(lifespan=lifespan)
 
-@app.post("/tasks/")
-async def tasks_post():
-    return {"status": "ok"}
-    # await tasks.run(mongo)
+
+# Helper function to handle recognized commands
+async def handle_menu(params, reply_function):
+    """
+    Handle recognized commands and display menus.
+    """
+    content = params['content'].strip().lower()
+
+    # Define menus
+    main_menu_buttons = [
+        ["🚀 Apply for Grant", "📊 Check Application Status"],
+        ["ℹ️ About Supagrants", "💡 Help"]
+    ]
+
+    # Command-based menu handling
+    if content in ["/start", "start"]:
+        welcome_message = (
+            "👋 Welcome to Supagrants Bot!\n"
+            "We help connect promising projects with grants on Solana.\n\n"
+            "Select an option below to get started:"
+        )
+        await reply_function(
+            welcome_message,
+            reply_markup=ReplyKeyboardMarkup(main_menu_buttons, resize_keyboard=True)
+        )
+        return True
+
+    if content in ["🚀 apply for grant", "/apply"]:
+        await reply_function("You selected 'Apply for Grant'. Let's begin the process!")
+        return True
+
+    if content in ["📊 check application status", "/status"]:
+        await reply_function("You selected 'Check Application Status'. Please provide your application ID.")
+        return True
+
+    if content in ["ℹ️ about supagrants", "/about"]:
+        about_text = (
+            "ℹ️ Supagrants is an AI-powered grant application assistant for the Solana ecosystem.\n\n"
+            "We help:\n- Match projects with suitable grants\n"
+            "- Streamline the application process\n"
+            "- Provide real-time status updates\n\n"
+            "Find more info on: [https://supagrants.example.com](https://supagrants.example.com)"
+        )
+        await reply_function(about_text)
+        return True
+
+    if content in ["💡 help", "/help"]:
+        help_text = (
+            "💡 Here's how to use Supagrants Bot:\n\n"
+            "/start - Return to main menu\n"
+            "/apply - Start a new grant application\n"
+            "/status - Check your application status\n"
+            "/about - Learn about Supagrants\n"
+            "/help - Show this help message\n\n"
+            "Need more assistance? Type your question below."
+        )
+        await reply_function(help_text)
+        return True
+
+    if content == "/cancel":
+        await reply_function(
+            "🛑 Current process has been cancelled.\n"
+            "You can start a new process or return to the main menu.",
+            reply_markup=ReplyKeyboardMarkup(main_menu_buttons, resize_keyboard=True)
+        )
+        return True
+
+    return False  #
+
 
 @app.post("/agent/")
 async def mentor(request: Request, background_tasks: BackgroundTasks):
@@ -93,18 +156,23 @@ async def mentor(request: Request, background_tasks: BackgroundTasks):
         if not params:
             return {"status": "ok"}
 
-        async def telegram_reply(msg):
-            await tg.send_message_with_retry(params['chat_id'], msg)
+        async def telegram_reply(msg, reply_markup=None):
+            await tg.send_message_with_retry(params['chat_id'], msg, reply_markup=reply_markup)
 
         # Ignore if message is from bot or no content
         if not params or params['is_bot'] or (not params['content'] and not params['file']):
             return {"status": "ok"}
 
+        # Check if input is a recognized command and handle the menu
+        if await handle_menu(params, telegram_reply):
+            return {"status": "ok"}  # Command handled; stop further processing
+
+        # Handle other inputs like URLs or files
         text = f"@{params['username']}: {params['content']}"
         if params['has_reply']:
             text += f" REPLYING TO: {params['reply_text']}"
 
-        # Handle document
+        # Handle document uploads
         if params['file']:
             file_info = params['file']
             mime_type = file_info.get('mime_type')
@@ -114,14 +182,10 @@ async def mentor(request: Request, background_tasks: BackgroundTasks):
                 await knowledge.knowledge_base.handle_txt_file(file_info)
             else:
                 logger.warning(f"Unsupported MIME type: {mime_type}")
-
             text = f"SYSTEM: Document added to knowledge base {file_info['file_name']}"
 
         # Handle URLs
         if params.get('urls'):
-            logger.debug(f"Processing URLs: {params['urls']}")
-
-            # Initialize the crawler tool once
             crawl_tool = crawler.Crawl4aiTools()
 
             async def check_duplicate(url: str) -> bool:
@@ -173,6 +237,7 @@ async def mentor(request: Request, background_tasks: BackgroundTasks):
             all_urls = ",".join(params['urls'])
             text = f"SYSTEM: URLs are being crawled and added to knowledge base: {all_urls}"
 
+        # Proceed with general next action
         await router.next_action(text, params['user'], mongo,
                                  reply_function=telegram_reply,
                                  processing_id=params['message_id'])
@@ -183,11 +248,12 @@ async def mentor(request: Request, background_tasks: BackgroundTasks):
         traceback.print_exc()
         return {"status": "ok"}
 
+
 if __name__ == "__main__":
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
         port=6010,
         reload=True,
-        log_config=None  # Disable Uvicorn's default log configuration
+        log_config=None
     )
