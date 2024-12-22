@@ -60,6 +60,7 @@ async def lifespan(app: FastAPI):
     Lifespan event handler for FastAPI.
     Handles startup and shutdown events.
     """
+    print("Starting up the application.")
     try:
         logger.info("Starting up the application.")
 
