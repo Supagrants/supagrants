@@ -36,7 +36,7 @@ class TelegramHelper:
         self.rate_limiter = asyncio.Semaphore(rate_limit)
         logger.info(f"Rate limiter initialized with {rate_limit} limit.")
 
-    async def send_message(self, chat_id: int, text: str) -> None:
+    async def send_message(self, chat_id: int, text: str, reply_markup) -> None:
         """
         Send a message using the external telegram_format converter with rate limiting.
 
@@ -50,7 +50,8 @@ class TelegramHelper:
                 await self.bot.send_message(
                     chat_id=chat_id,
                     text=formatted_text,
-                    parse_mode=ParseMode.HTML
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=reply_markup
                 )
                 logger.debug(f"Message sent to chat {chat_id}.")
             except Exception as e:
@@ -80,7 +81,7 @@ class TelegramHelper:
             logger.error(f"Failed to send message to chat {chat_id}: {e}")
             raise
 
-    async def send_message_with_retry(self, chat_id: int, text: str, retries: int = 3):
+    async def send_message_with_retry(self, chat_id: int, text: str, retries: int = 3, reply_markup=None):
         """
         Attempt to send a message with retries in case of failure.
 
@@ -91,7 +92,7 @@ class TelegramHelper:
         """
         for attempt in range(retries):
             try:
-                await self.send_message(chat_id, text)
+                await self.send_message(chat_id, text, reply_markup)
                 logger.info(f"Message successfully sent to chat {chat_id} on attempt {attempt + 1}.")
                 return
             except TimedOut as e:
