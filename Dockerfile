@@ -10,8 +10,8 @@ RUN apt-get update && apt-get install -y \
     python3-pip \
     libpq-dev \
     build-essential \
-    poppler-utils \      # Add this for PDF processing
-    tesseract-ocr \      # Add this for OCR
+    poppler-utils \ 
+    tesseract-ocr \ 
     && rm -rf /var/lib/apt/lists/*
 
 # Copy the requirements file first to leverage Docker's caching mechanism
