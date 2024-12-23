@@ -251,7 +251,7 @@ async def mentor(request: Request, background_tasks: BackgroundTasks):
             text = f"SYSTEM: URLs are being crawled and added to knowledge base: {all_urls}"
 
         # Proceed with general next action
-        await router.next_action(text, params['user'], mongo,
+        await router.next_action(text, params['user'], params['chat_id'], mongo,
                                  reply_function=telegram_reply,
                                  processing_id=params['message_id'])
 

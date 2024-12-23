@@ -15,21 +15,7 @@ logger = logging.getLogger(__name__)
 
 try:
     embedder = get_embedder()
-    logger.info(f"Initialized OpenAI embedder: {embedder}")
-    
-    # Test embedding creation
-    test_text = "Schoolio test embedding"
-    logger.info("Creating test embedding...")
-    
-    # Use get_embedding instead of encode
-    test_embedding = embedder.get_embedding(test_text)
-    embedding_dim = len(test_embedding)
-    logger.info(f"Test embedding successful - dimensions: {embedding_dim}")
-    
-    if embedding_dim != 1536:
-        logger.error(f"OpenAI embedding dimension mismatch! Got {embedding_dim}, expected 1536")
-        raise ValueError(f"OpenAI embedding dimension mismatch: {embedding_dim} vs 1536")
-
+   
 except Exception as e:
     logger.error(f"Embedder initialization/test failed: {str(e)}")
     raise
