@@ -4,12 +4,14 @@ FROM mcr.microsoft.com/playwright:v1.49.0-jammy
 # Set the working directory
 WORKDIR /app
 
-# Install Python and pip (only necessary dependencies)
+# Install Python, pip, and PDF processing dependencies
 RUN apt-get update && apt-get install -y \
     python3.11 \
     python3-pip \
     libpq-dev \
     build-essential \
+    poppler-utils \      # Add this for PDF processing
+    tesseract-ocr \      # Add this for OCR
     && rm -rf /var/lib/apt/lists/*
 
 # Copy the requirements file first to leverage Docker's caching mechanism
