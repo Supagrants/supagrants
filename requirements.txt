@@ -37,5 +37,7 @@ beautifulsoup4
 
 # file
 pdfminer.six
+pdf2image 
+pytesseract
 
  # logging

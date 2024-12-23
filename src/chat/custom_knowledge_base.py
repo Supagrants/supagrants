@@ -561,44 +561,47 @@ class CustomKnowledgeBase(AgentKnowledge):
 
     async def extract_text_from_pdf(self, pdf_bytes: bytes) -> Optional[str]:
         """
-        Extract text from a PDF file.
-
-        Args:
-            pdf_bytes (bytes): The raw bytes of the PDF file.
-
-        Returns:
-            Optional[str]: The extracted text or None if extraction fails.
+        Extract text from a PDF file using OCR when needed.
         """
         try:
+            from pdf2image import convert_from_bytes
+            import pytesseract
+            import io
             from PyPDF2 import PdfReader
-            
+
             logger.info("Starting PDF text extraction...")
-            with io.BytesIO(pdf_bytes) as pdf_file:
-                # Create PDF reader object
-                reader = PdfReader(pdf_file)
-                number_of_pages = len(reader.pages)
-                logger.info(f"PDF has {number_of_pages} pages")
+            
+            # First try normal text extraction
+            reader = PdfReader(io.BytesIO(pdf_bytes))
+            text_content = []
+            
+            for page_num, page in enumerate(reader.pages, 1):
+                text = page.extract_text()
+                if text and len(text.strip()) > 0:
+                    text_content.append(text.strip())
+                    logger.info(f"Extracted text from page {page_num} using PDF reader")
+                else:
+                    # If no text found, try OCR
+                    logger.info(f"Using OCR for page {page_num}")
+                    images = convert_from_bytes(pdf_bytes, first_page=page_num, last_page=page_num)
+                    for image in images:
+                        text = pytesseract.image_to_string(image)
+                        if text.strip():
+                            text_content.append(text.strip())
+                            logger.info(f"Extracted text from page {page_num} using OCR")
+
+            # Combine all text
+            full_text = "\n\n".join(text_content)
+            
+            if not full_text.strip():
+                logger.warning("No text extracted from PDF")
+                return None
                 
-                # Extract text from each page
-                text_content = []
-                for page_num, page in enumerate(reader.pages, 1):
-                    text = page.extract_text()
-                    if text:
-                        text = text.strip()
-                        text_content.append(text)
-                        logger.info(f"Extracted {len(text)} characters from page {page_num}")
-                    else:
-                        logger.warning(f"No text extracted from page {page_num}")
-                
-                # Combine all text
-                full_text = "\n\n".join(text_content)
-                
-                # Log extraction results
-                logger.info(f"Total extracted text length: {len(full_text)} characters")
-                logger.info(f"Sample of extracted text: {full_text[:200]}...")
-                
-                return full_text if full_text.strip() else None
-                
+            logger.info(f"Total extracted text length: {len(full_text)} characters")
+            logger.info(f"Sample of extracted text: {full_text[:200]}...")
+            
+            return full_text
+
         except Exception as e:
             logger.error(f"Failed to extract text from PDF: {str(e)}", exc_info=True)
             return None
