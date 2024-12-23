@@ -508,41 +508,56 @@ class CustomKnowledgeBase(AgentKnowledge):
             return
 
         try:
+            logger.info(f"Starting to process PDF: {file_info['file_name']}")
+            
+            # Download file
             file_content = await self.download_file(file_info['file_url'])
             if not file_content:
                 logger.error(f"Failed to download PDF file: {file_info['file_url']}")
                 return
+            logger.info(f"Downloaded PDF file, size: {len(file_content)} bytes")
 
             # Extract text from PDF
             extracted_text = await self.extract_text_from_pdf(file_content)
             if not extracted_text:
                 logger.error(f"No text extracted from PDF file: {file_info['file_url']}")
                 return
+            logger.info(f"Successfully extracted text, length: {len(extracted_text)} characters")
 
-            # Generate content hash
-            content_hash = self.compute_content_hash(extracted_text)
+            # Split content into chunks for better processing
+            chunks = self.split_content_into_chunks(extracted_text, max_size=4000)  # Adjust max_size as needed
+            logger.info(f"Split content into {len(chunks)} chunks")
 
-            # Prepare metadata
-            metadata = {
-                "source": file_info['file_url'],
-                "original_filename": file_info['file_name'],
-                "document_type": "pdf",
-                # Add other metadata fields as needed
-            }
+            # Process each chunk
+            for i, chunk in enumerate(chunks):
+                # Generate unique ID for each chunk
+                chunk_id = f"{self.compute_content_hash(chunk)}_{i}"
+                
+                # Prepare metadata
+                metadata = {
+                    "source": file_info['file_url'],
+                    "original_filename": file_info['file_name'],
+                    "document_type": "pdf",
+                    "chunk_number": i + 1,
+                    "total_chunks": len(chunks)
+                }
 
-            # Create document dictionary
-            document = {
-                "title": file_info['file_name'],
-                "content": extracted_text,
-                "meta_data": metadata
-            }
+                # Create document dictionary
+                document = {
+                    "id": chunk_id,
+                    "title": f"{file_info['file_name']} (Part {i + 1}/{len(chunks)})",
+                    "content": chunk,
+                    "meta_data": metadata
+                }
 
-            # Add document with 'pdf' as document_type
-            await self.add_document(document, document_type="pdf")
-            logger.info(f"Indexed PDF file: {file_info['file_name']}")
+                # Add document with 'pdf' as document_type
+                await self.add_document(document, document_type="pdf")
+                logger.info(f"Indexed chunk {i + 1}/{len(chunks)} of PDF file: {file_info['file_name']}")
+
+            logger.info(f"Successfully processed entire PDF file: {file_info['file_name']}")
 
         except Exception as e:
-            logger.error(f"Error indexing PDF file {file_info.get('file_name', '')}: {e}")
+            logger.error(f"Error indexing PDF file {file_info.get('file_name', '')}: {str(e)}", exc_info=True)
 
     async def extract_text_from_pdf(self, pdf_bytes: bytes) -> Optional[str]:
         """
@@ -555,12 +570,37 @@ class CustomKnowledgeBase(AgentKnowledge):
             Optional[str]: The extracted text or None if extraction fails.
         """
         try:
+            from PyPDF2 import PdfReader
+            
+            logger.info("Starting PDF text extraction...")
             with io.BytesIO(pdf_bytes) as pdf_file:
-                text = extract_text(pdf_file)
-                logger.debug("Extracted text from PDF successfully.")
-                return text
+                # Create PDF reader object
+                reader = PdfReader(pdf_file)
+                number_of_pages = len(reader.pages)
+                logger.info(f"PDF has {number_of_pages} pages")
+                
+                # Extract text from each page
+                text_content = []
+                for page_num, page in enumerate(reader.pages, 1):
+                    text = page.extract_text()
+                    if text:
+                        text = text.strip()
+                        text_content.append(text)
+                        logger.info(f"Extracted {len(text)} characters from page {page_num}")
+                    else:
+                        logger.warning(f"No text extracted from page {page_num}")
+                
+                # Combine all text
+                full_text = "\n\n".join(text_content)
+                
+                # Log extraction results
+                logger.info(f"Total extracted text length: {len(full_text)} characters")
+                logger.info(f"Sample of extracted text: {full_text[:200]}...")
+                
+                return full_text if full_text.strip() else None
+                
         except Exception as e:
-            logger.error(f"Failed to extract text from PDF: {e}")
+            logger.error(f"Failed to extract text from PDF: {str(e)}", exc_info=True)
             return None
 
     async def download_file(self, file_url: str) -> Optional[bytes]:
