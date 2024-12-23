@@ -27,7 +27,7 @@ async def next_action(msg: str, user_id: str, mongo, reply_function=None, proces
         
         # Create context with the retrieved knowledge
         context = f"""
-        Available Information about Schoolio:
+        Available Information about the user's project:
         {relevant_knowledge}
 
         User Query: {msg}
