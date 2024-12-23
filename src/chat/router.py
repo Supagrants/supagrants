@@ -16,7 +16,7 @@ from utils.llm_helper import get_llm_model
 # Setup logging
 logger = logging.getLogger(__name__)
 
-async def next_action(msg: str, user_id: str, mongo, reply_function=None, processing_id=None):
+async def next_action(msg: str, user_id: str, chat_id: str, mongo, reply_function=None, processing_id=None):
     logger.info(f"Starting next action for user {user_id} with message: {msg[:50]}...")
 
     # Get knowledge first
@@ -41,7 +41,7 @@ async def next_action(msg: str, user_id: str, mongo, reply_function=None, proces
     agent = TokenLimitAgent(
         name="Chat Agent",
         model=get_llm_model(),
-        session_id='main',
+        session_id=f"{user_id}_{chat_id}",  # Unique per chat
         user_id=user_id,
         memory=AgentMemory(
              db=PgMemoryDb(table_name="agent_memory", db_url=POSTGRES_CONNECTION), 
