@@ -43,29 +43,50 @@ class CustomKnowledgeBase(AgentKnowledge):
     def get_relevant_knowledge(self, query: str) -> str:
         """Get relevant knowledge from the vector database based on the query."""
         try:
-            logger.info(f"Searching vector DB with query: {query}")
-            logger.info(f"Vector DB connection: {self.vector_db}")
+            # Clean the query
+            clean_query = query.split(": ", 1)[-1] if ": " in query else query  # Remove Telegram prefix
+            logger.info(f"Original query: {query}")
+            logger.info(f"Cleaned query: {clean_query}")
             
+            # Check database content first
+            import psycopg2
+            conn = psycopg2.connect(self.vector_db.db_url)
+            cur = conn.cursor()
+            
+            # Check document count
+            cur.execute("SELECT COUNT(*) FROM ai.documents;")
+            doc_count = cur.fetchone()[0]
+            logger.info(f"Total documents in database: {doc_count}")
+            
+            # Check documents with embeddings
+            cur.execute("SELECT COUNT(*) FROM ai.documents WHERE embedding IS NOT NULL;")
+            embedding_count = cur.fetchone()[0]
+            logger.info(f"Documents with embeddings: {embedding_count}")
+            
+            # Get embedding for cleaned query
+            query_embedding = self.vector_db.embedder.get_embedding(clean_query)
+            logger.info(f"Generated query embedding dimensions: {len(query_embedding)}")
+            
+            # Try vector search with raw SQL first
+            cur.execute("""
+                SELECT id, name, substring(content, 1, 200) as preview
+                FROM ai.documents
+                ORDER BY embedding <-> %s::vector
+                LIMIT 5;
+            """, (query_embedding,))
+            sql_results = cur.fetchall()
+            logger.info(f"Direct SQL search results: {sql_results}")
+            
+            # Now try PgVector search
             results = self.vector_db.search(
-                query=query,
+                query=clean_query,
                 limit=5
             )
             
-            logger.info(f"Raw search results type: {type(results)}")
-            logger.info(f"Raw search results: {results}")
-            
             if not results:
-                logger.debug("No relevant documents found")
+                logger.info("No results from vector search")
                 return ""
-                
-            # Log each result's structure
-            for i, r in enumerate(results):
-                logger.info(f"Result {i} type: {type(r)}")
-                logger.info(f"Result {i} attributes: {dir(r)}")
-                logger.info(f"Result {i} metadata: {getattr(r, 'metadata', 'No metadata')}")
-                logger.info(f"Result {i} content: {getattr(r, 'content', 'No content')[:100]}...")
-            
-            # Combine the content from relevant documents
+                    
             relevant_content = []
             for r in results:
                 try:
@@ -77,11 +98,9 @@ class CustomKnowledgeBase(AgentKnowledge):
                     continue
             
             combined_content = "\n\n".join(relevant_content)
-            logger.info(f"Combined relevant content length: {len(combined_content)}")
-            logger.info(f"First 200 chars of combined content: {combined_content[:200]}")
-            
+            logger.info(f"Found relevant content length: {len(combined_content)}")
             return combined_content
-            
+                
         except Exception as e:
             logger.error(f"Error retrieving knowledge from vector DB: {str(e)}", exc_info=True)
             return ""
