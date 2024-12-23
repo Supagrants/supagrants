@@ -17,14 +17,14 @@ from utils.llm_helper import get_llm_model
 logger = logging.getLogger(__name__)
 
 async def next_action(msg: str, user_id: str, mongo, reply_function=None, processing_id=None):
-    logger.debug(f"Starting next action for user {user_id} with message: {msg[:50]}...")
+    logger.info(f"Starting next action for user {user_id} with message: {msg[:50]}...")
 
     # Test knowledge retrieval directly
-    logger.debug("Testing direct knowledge retrieval...")
+    logger.info("Testing direct knowledge retrieval...")
     try:
         test_knowledge = knowledge.knowledge_base.get_relevant_knowledge(msg)
-        logger.debug(f"Knowledge retrieval test - Success: {bool(test_knowledge)}")
-        logger.debug(f"Retrieved content length: {len(test_knowledge) if test_knowledge else 0}")
+        logger.info(f"Knowledge retrieval test - Success: {bool(test_knowledge)}")
+        logger.info(f"Retrieved content length: {len(test_knowledge) if test_knowledge else 0}")
     except Exception as e:
         logger.error(f"Knowledge retrieval test failed: {str(e)}")
 
@@ -51,10 +51,11 @@ async def next_action(msg: str, user_id: str, mongo, reply_function=None, proces
         telemetry=False,
     )
     try:
-        logger.debug("About to run agent with knowledge search enabled")
+        logger.info("About to run agent with knowledge search enabled")
         response: RunResponse = agent.run(msg)
-        logger.debug(f"Agent response generated successfully for user {user_id}.")
-        
+        logger.info(f"Agent response generated successfully for user {user_id}.")
+        logger.info(f"Agent response: {response.get_content_as_string()}")
+        print(f"Agent response: {response.get_content_as_string()}")
         if reply_function:
             await reply_function(response.get_content_as_string())
         
