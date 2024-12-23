@@ -26,6 +26,7 @@ psycopg[binary]
 pypdf
 sqlalchemy
 psycopg2
+PyPDF2
 
 # crawler
 crawl4ai==0.4.1
