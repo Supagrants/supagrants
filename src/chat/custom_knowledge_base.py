@@ -43,16 +43,16 @@ class CustomKnowledgeBase(AgentKnowledge):
     def get_relevant_knowledge(self, query: str) -> str:
         """Get relevant knowledge from the vector database based on the query."""
         try:
-            logger.debug(f"Searching vector DB with query: {query}")
-            logger.debug(f"Vector DB connection: {self.vector_db}")
+            logger.info(f"Searching vector DB with query: {query}")
+            logger.info(f"Vector DB connection: {self.vector_db}")
             
             results = self.vector_db.search(
                 query=query,
                 limit=5
             )
             
-            logger.debug(f"Raw search results type: {type(results)}")
-            logger.debug(f"Raw search results: {results}")
+            logger.info(f"Raw search results type: {type(results)}")
+            logger.info(f"Raw search results: {results}")
             
             if not results:
                 logger.debug("No relevant documents found")
@@ -60,10 +60,10 @@ class CustomKnowledgeBase(AgentKnowledge):
                 
             # Log each result's structure
             for i, r in enumerate(results):
-                logger.debug(f"Result {i} type: {type(r)}")
-                logger.debug(f"Result {i} attributes: {dir(r)}")
-                logger.debug(f"Result {i} metadata: {getattr(r, 'metadata', 'No metadata')}")
-                logger.debug(f"Result {i} content: {getattr(r, 'content', 'No content')[:100]}...")
+                logger.info(f"Result {i} type: {type(r)}")
+                logger.info(f"Result {i} attributes: {dir(r)}")
+                logger.info(f"Result {i} metadata: {getattr(r, 'metadata', 'No metadata')}")
+                logger.info(f"Result {i} content: {getattr(r, 'content', 'No content')[:100]}...")
             
             # Combine the content from relevant documents
             relevant_content = []
@@ -77,8 +77,8 @@ class CustomKnowledgeBase(AgentKnowledge):
                     continue
             
             combined_content = "\n\n".join(relevant_content)
-            logger.debug(f"Combined relevant content length: {len(combined_content)}")
-            logger.debug(f"First 200 chars of combined content: {combined_content[:200]}")
+            logger.info(f"Combined relevant content length: {len(combined_content)}")
+            logger.info(f"First 200 chars of combined content: {combined_content[:200]}")
             
             return combined_content
             
