@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 # Initialize a unified PgVector for all documents
 try:
     vector_db = PgVector(
-        table_name="ai.documents",
+        table_name="documents",
         db_url=POSTGRES_CONNECTION,
         embedder=get_embedder()
     )
