@@ -20,7 +20,9 @@ try:
     # Test embedding creation
     test_text = "Schoolio test embedding"
     logger.info("Creating test embedding...")
-    test_embedding = embedder.encode(test_text)
+    
+    # Use get_embedding instead of encode
+    test_embedding = embedder.get_embedding(test_text)
     embedding_dim = len(test_embedding)
     logger.info(f"Test embedding successful - dimensions: {embedding_dim}")
     
@@ -31,7 +33,6 @@ try:
 except Exception as e:
     logger.error(f"Embedder initialization/test failed: {str(e)}")
     raise
-
 
 
 # Initialize PgVector with explicit error handling
