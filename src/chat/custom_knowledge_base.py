@@ -44,30 +44,47 @@ class CustomKnowledgeBase(AgentKnowledge):
         """Get relevant knowledge from the vector database based on the query."""
         try:
             logger.debug(f"Searching vector DB with query: {query}")
+            logger.debug(f"Vector DB connection: {self.vector_db}")
+            
             results = self.vector_db.search(
                 query=query,
-                table_schema="ai",
                 limit=5,
                 threshold=0.7  # Adjust this threshold as needed
             )
             
-            logger.debug(f"Vector DB search results: {results}")
+            logger.debug(f"Raw search results type: {type(results)}")
+            logger.debug(f"Raw search results: {results}")
             
             if not results:
                 logger.debug("No relevant documents found")
                 return ""
                 
-            # Combine the content from relevant documents
-            relevant_content = "\n\n".join([
-                f"From document '{r.metadata.get('name', 'unnamed')}': {r.content}"
-                for r in results
-            ])
+            # Log each result's structure
+            for i, r in enumerate(results):
+                logger.debug(f"Result {i} type: {type(r)}")
+                logger.debug(f"Result {i} attributes: {dir(r)}")
+                logger.debug(f"Result {i} metadata: {getattr(r, 'metadata', 'No metadata')}")
+                logger.debug(f"Result {i} content: {getattr(r, 'content', 'No content')[:100]}...")
             
-            logger.debug(f"Combined relevant content length: {len(relevant_content)}")
-            return relevant_content
+            # Combine the content from relevant documents
+            relevant_content = []
+            for r in results:
+                try:
+                    doc_name = r.metadata.get('name', 'unnamed') if hasattr(r, 'metadata') else 'unnamed'
+                    doc_content = r.content if hasattr(r, 'content') else str(r)
+                    relevant_content.append(f"From document '{doc_name}': {doc_content}")
+                except Exception as doc_e:
+                    logger.error(f"Error processing document: {str(doc_e)}")
+                    continue
+            
+            combined_content = "\n\n".join(relevant_content)
+            logger.debug(f"Combined relevant content length: {len(combined_content)}")
+            logger.debug(f"First 200 chars of combined content: {combined_content[:200]}")
+            
+            return combined_content
             
         except Exception as e:
-            logger.error(f"Error retrieving knowledge from vector DB: {str(e)}")
+            logger.error(f"Error retrieving knowledge from vector DB: {str(e)}", exc_info=True)
             return ""
 
     def split_content_into_chunks(self, content: str, max_size: int) -> List[str]:
