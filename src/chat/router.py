@@ -19,29 +19,39 @@ logger = logging.getLogger(__name__)
 async def next_action(msg: str, user_id: str, mongo, reply_function=None, processing_id=None):
     logger.info(f"Starting next action for user {user_id} with message: {msg[:50]}...")
 
-    # Test knowledge retrieval directly
-    logger.info("Testing direct knowledge retrieval...")
+    # Get knowledge first
+    logger.info("Retrieving relevant knowledge...")
     try:
-        test_knowledge = knowledge.knowledge_base.get_relevant_knowledge(msg)
-        logger.info(f"Knowledge retrieval test - Success: {bool(test_knowledge)}")
-        logger.info(f"Retrieved content length: {len(test_knowledge) if test_knowledge else 0}")
+        relevant_knowledge = knowledge.knowledge_base.get_relevant_knowledge(msg)
+        logger.info(f"Retrieved knowledge length: {len(relevant_knowledge) if relevant_knowledge else 0}")
+        
+        # Create context with the retrieved knowledge
+        context = f"""
+        Available Information about Schoolio:
+        {relevant_knowledge}
+
+        User Query: {msg}
+        """
+        logger.info(f"Created context with knowledge and query")
+        
     except Exception as e:
-        logger.error(f"Knowledge retrieval test failed: {str(e)}")
+        logger.error(f"Knowledge retrieval failed: {str(e)}")
+        context = msg  # Fallback to just the message if knowledge retrieval fails
 
     agent = TokenLimitAgent(
         name="Chat Agent",
         model=get_llm_model(),
-        session_id='main',  # todo replace with group / chat
+        session_id='main',
         user_id=user_id,
         memory=AgentMemory(
              db=PgMemoryDb(table_name="agent_memory", db_url=POSTGRES_CONNECTION), 
              create_user_memories=True, 
              create_session_summary=True,
              num_memories=10,
-         ),
+        ),
         storage=PgAgentStorage(table_name="agent_sessions", db_url=POSTGRES_CONNECTION),
         num_history_responses=MAX_HISTORY,
-        description=f"{ABOUT}\n\nBackground Information:\n{BACKGROUND}",
+        description=f"{ABOUT}\n\nBackground Information:\n{BACKGROUND}\n\nContext:\n{relevant_knowledge}",
         add_datetime_to_instructions=True,
         add_history_to_messages=True,
         read_chat_history=True,
@@ -50,12 +60,13 @@ async def next_action(msg: str, user_id: str, mongo, reply_function=None, proces
         tools=[DuckDuckGo()],
         telemetry=False,
     )
+    
     try:
-        logger.info("About to run agent with knowledge search enabled")
-        response: RunResponse = agent.run(msg)
+        logger.info("Running agent with retrieved knowledge in context")
+        response: RunResponse = agent.run(context)
         logger.info(f"Agent response generated successfully for user {user_id}.")
         logger.info(f"Agent response: {response.get_content_as_string()}")
-        print(f"Agent response: {response.get_content_as_string()}")
+        
         if reply_function:
             await reply_function(response.get_content_as_string())
         
@@ -63,5 +74,3 @@ async def next_action(msg: str, user_id: str, mongo, reply_function=None, proces
     except Exception as e:
         logger.error(f"Error during agent action for user {user_id}: {str(e)}")
         raise
-
-
