@@ -53,14 +53,6 @@ def get_llm_model():
 def get_embedder():
     """
     Returns the appropriate embedder based on the LLM_PROVIDER configuration.
-
-    Defaults to OpenAIEmbedder if LLM_PROVIDER is not set or unsupported.
-
-    Returns:
-        An instance of OpenAIEmbedder or GeminiEmbedder.
-
-    Raises:
-        ValueError: If OpenAI API key is missing when required.
     """
     provider = LLM_PROVIDER.lower() if LLM_PROVIDER else "openai"
 
@@ -71,18 +63,30 @@ def get_embedder():
             logger.error("OPENAI_API_KEY is missing.")
             raise ValueError("OPENAI_API_KEY is not set in config.py or environment variables.")
         logger.info("Using OpenAI Embedder.")
-        return OpenAIEmbedder(api_key=OPENAI_API_KEY)
+        return OpenAIEmbedder(
+            api_key=OPENAI_API_KEY,
+            model="text-embedding-3-small",  # Add model specification
+            dimensions=1536  # Explicitly set dimensions
+        )
 
     elif provider == "gemini":
         if not GOOGLE_API_KEY:
             logger.error("GOOGLE_API_KEY is missing.")
             raise ValueError("GOOGLE_API_KEY is not set in config.py or environment variables.")
         logger.info("Using Gemini Embedder.")
-        return GeminiEmbedder(model="models/text-embedding-004", dimensions=768, api_key=GOOGLE_API_KEY)
+        return GeminiEmbedder(
+            model="models/text-embedding-004", 
+            dimensions=768, 
+            api_key=GOOGLE_API_KEY
+        )
 
     else:
         logger.warning(f"Unsupported LLM_PROVIDER '{LLM_PROVIDER}'. Defaulting to OpenAIEmbedder.")
         if not OPENAI_API_KEY:
             logger.error("OPENAI_API_KEY is missing.")
             raise ValueError("OPENAI_API_KEY is not set in config.py or environment variables.")
-        return OpenAIEmbedder(api_key=OPENAI_API_KEY)
+        return OpenAIEmbedder(
+            api_key=OPENAI_API_KEY,
+            model="text-embedding-3-small",
+            dimensions=1536
+        )
