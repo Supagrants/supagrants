@@ -12,12 +12,17 @@ from config import POSTGRES_CONNECTION
 logger = logging.getLogger(__name__)
 
 # Initialize a unified PgVector for all documents
-vector_db = PgVector(
-    table_name="documents",  # Unified table
-    db_url=POSTGRES_CONNECTION,
-    embedder=get_embedder(),
-    schema_name="ai"  # Add this line
-)
+try:
+    vector_db = PgVector(
+        table_name="documents",
+        db_url=POSTGRES_CONNECTION,
+        embedder=get_embedder(),
+        schema_name="ai"
+    )
+    logger.info("Vector DB initialized successfully")
+except Exception as e:
+    logger.error(f"Detailed error initializing vector DB: {type(e).__name__}: {str(e)}")
+    raise
 
 # Initialize CustomKnowledgeBase
 knowledge_base = CustomKnowledgeBase(
