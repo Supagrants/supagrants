@@ -40,6 +40,36 @@ class CustomKnowledgeBase(AgentKnowledge):
             logger.debug(f"Loading documents from {kb.__class__.__name__}")
             yield from kb.document_lists
 
+    def get_relevant_knowledge(self, query: str) -> str:
+        """Get relevant knowledge from the vector database based on the query."""
+        try:
+            logger.debug(f"Searching vector DB with query: {query}")
+            results = self.vector_db.search(
+                query=query,
+                table_schema="ai",
+                limit=5,
+                threshold=0.7  # Adjust this threshold as needed
+            )
+            
+            logger.debug(f"Vector DB search results: {results}")
+            
+            if not results:
+                logger.debug("No relevant documents found")
+                return ""
+                
+            # Combine the content from relevant documents
+            relevant_content = "\n\n".join([
+                f"From document '{r.metadata.get('name', 'unnamed')}': {r.content}"
+                for r in results
+            ])
+            
+            logger.debug(f"Combined relevant content length: {len(relevant_content)}")
+            return relevant_content
+            
+        except Exception as e:
+            logger.error(f"Error retrieving knowledge from vector DB: {str(e)}")
+            return ""
+
     def split_content_into_chunks(self, content: str, max_size: int) -> List[str]:
         # Semantic chunking based on sentences
         sentences = re.split(r'(?<=[.!?]) +', content)
