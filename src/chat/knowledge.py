@@ -16,6 +16,7 @@ vector_db = PgVector(
     table_name="documents",  # Unified table
     db_url=POSTGRES_CONNECTION,
     embedder=get_embedder(),
+    schema_name="ai"  # Add this line
 )
 
 # Initialize CustomKnowledgeBase

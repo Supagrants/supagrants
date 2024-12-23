@@ -1,4 +1,5 @@
 -- database_schema_openai.sql
+DROP TABLE ai.documents;
 
 -- Create the table with the correct schema
 CREATE TABLE ai.documents (
