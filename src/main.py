@@ -105,7 +105,19 @@ async def handle_menu(params, reply_function):
         return True
 
     if content in ["🚀 apply for grant", "/apply"]:
-        await reply_function("You selected 'Apply for Grant'. Let's begin the process!")
+        await reply_function(
+            """
+            👋 Welcome to Supagrants Bot! I'm here to help you secure funding for your Solana project.
+
+            To start your grant application, please share:
+            1️⃣ Your project's website URL - This helps us understand your online presence
+            2️⃣ Your pitch deck (PDF) - This gives us detailed insight into your project
+
+            You can share either one now, and I'll help you with the next steps. Ready to begin? 🚀
+
+            💡 Tip: For the best results, make sure your pitch deck includes key information about your project's goals, team, and funding needs.
+            """
+        )
         return True
 
     if content in ["📊 check application status", "/status"]:
