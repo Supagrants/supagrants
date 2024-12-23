@@ -48,8 +48,7 @@ class CustomKnowledgeBase(AgentKnowledge):
             
             results = self.vector_db.search(
                 query=query,
-                limit=5,
-                threshold=0.7  # Adjust this threshold as needed
+                limit=5
             )
             
             logger.debug(f"Raw search results type: {type(results)}")
