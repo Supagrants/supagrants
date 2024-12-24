@@ -104,7 +104,7 @@ async def handle_menu(params, reply_function):
         )
         return True
     
-    if content in ["Submit Grant", "/submit"]:
+    if content in ["submit grant", "/submit"]:
         #find the user's project id
         logger.info(f"Getting applications for user {params['user']}")
         application = await get_applications(params['user'])
