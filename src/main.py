@@ -117,17 +117,9 @@ async def handle_menu(params, reply_function):
         url = "https://supagrant-funder-production.up.railway.app/submit/"
         response = requests.post(url, json=json_data)
         logger.info(f"Response from funder agent: {response.json()}")
-        if response.status_code == 200:
-            await reply_function(
+        await reply_function(
                 """
                 Awesome! We're submitting your grant application.
-                """
-            )
-        else:
-            logger.error(f"Failed to submit application. Status code: {response.status_code}")
-            await reply_function(
-                """
-                Sorry, we couldn't submit your grant application. Please try again later.
                 """
             )
         return True
