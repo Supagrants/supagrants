@@ -15,7 +15,7 @@ from utils.llm_helper import get_llm_model
 import psycopg2
 import json
 import hashlib
-from utils.get_applications import get_applications
+from utils.get_applications import save_response
 
 # Setup logging
 logger = logging.getLogger(__name__)
@@ -73,7 +73,7 @@ async def next_action(msg: str, user_id: str, chat_id: str, mongo, reply_functio
         
         if reply_function:
             #save the response to the database
-            await get_applications.save_response(response.get_content_as_string(), user_id, chat_id)
+            await save_response(response.get_content_as_string(), user_id, chat_id)
             await reply_function(response.get_content_as_string())
         
         return
