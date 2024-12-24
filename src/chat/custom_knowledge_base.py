@@ -7,12 +7,13 @@ import asyncio
 from hashlib import md5
 import re
 import io
-
+import hashlib
 from pydantic import BaseModel
 from phi.document import Document
 from phi.knowledge.agent import AgentKnowledge
 from phi.vectordb.pgvector import PgVector
 from bs4 import BeautifulSoup
+from sqlalchemy.ext.asyncio import AsyncSession
 import aiohttp
 from sqlalchemy import text
 from pdfminer.high_level import extract_text
@@ -558,6 +559,8 @@ class CustomKnowledgeBase(AgentKnowledge):
 
         except Exception as e:
             logger.error(f"Error indexing PDF file {file_info.get('file_name', '')}: {str(e)}", exc_info=True)
+
+
 
     async def extract_text_from_pdf(self, pdf_bytes: bytes) -> Optional[str]:
         """

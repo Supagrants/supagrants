@@ -9,13 +9,13 @@ import traceback
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-
+import requests
 import uvicorn
 from fastapi import FastAPI, Request, BackgroundTasks
 from pydantic import BaseModel
 from telegram.ext import Application
 from dotenv import load_dotenv
-
+import json
 from chat import router, knowledge, crawler
 from utils.telegram_helper import TelegramHelper
 from utils.mongo_aio import Mongo
@@ -24,7 +24,7 @@ from utils.url_helper import normalize_url
 from utils.logging_helper import setup_logging
 from config import TELEGRAM_BOT, TELEGRAM_BOT_HANDLE
 from telegram import ReplyKeyboardMarkup
-
+from utils.get_applications import get_applications
 load_dotenv()
 
 # Setup logging
@@ -88,7 +88,7 @@ async def handle_menu(params, reply_function):
     # Define menus
     main_menu_buttons = [
         ["🚀 Apply for Grant", "📊 Check Application Status"],
-        ["ℹ️ About Supagrants", "💡 Help"]
+        ["ℹ️ About Supagrants", "💡 Help", "💰 Submit a Grant"]
     ]
 
     # Command-based menu handling
@@ -102,6 +102,33 @@ async def handle_menu(params, reply_function):
             welcome_message,
             reply_markup=ReplyKeyboardMarkup(main_menu_buttons, resize_keyboard=True)
         )
+        return True
+    
+    if content in ["💰 Submit a Grant", "/submit"]:
+        #find the user's project id
+        application = await get_applications(params['user'])
+        
+        # Convert application data to JSON-serializable format
+        json_data = {
+            "application": json.dumps(application, default=str)  # Use default=str to handle datetime
+        }
+        
+        url = "https://supagrant-funder-production.up.railway.app/submit"
+        response = requests.post(url, json=json_data)
+        
+        if response.status_code == 200:
+            await reply_function(
+                """
+                Awesome! We're submitting your grant application.
+                """
+            )
+        else:
+            logger.error(f"Failed to submit application. Status code: {response.status_code}")
+            await reply_function(
+                """
+                Sorry, we couldn't submit your grant application. Please try again later.
+                """
+            )
         return True
 
     if content in ["🚀 apply for grant", "/apply"]:

@@ -6,13 +6,15 @@ from phi.agent import Agent, RunResponse, AgentMemory
 from phi.memory.db.postgres import PgMemoryDb
 from phi.storage.agent.postgres import PgAgentStorage
 from phi.tools.duckduckgo import DuckDuckGo
-
+from utils.llm_helper import get_embedder
 from chat import prompts, knowledge
 from chat.token_limit_agent import TokenLimitAgent
 from chat.prompts.prompts_medium import ABOUT, BACKGROUND
 from config import POSTGRES_CONNECTION, MAX_HISTORY
 from utils.llm_helper import get_llm_model
-
+import psycopg2
+import json
+import hashlib
 # Setup logging
 logger = logging.getLogger(__name__)
 
@@ -68,9 +70,13 @@ async def next_action(msg: str, user_id: str, chat_id: str, mongo, reply_functio
         logger.info(f"Agent response: {response.get_content_as_string()}")
         
         if reply_function:
+            #save the response to the database
+            await save_response(response.get_content_as_string(), user_id, chat_id)
             await reply_function(response.get_content_as_string())
         
         return
     except Exception as e:
         logger.error(f"Error during agent action for user {user_id}: {str(e)}")
         raise
+
+
