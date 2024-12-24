@@ -88,7 +88,7 @@ async def handle_menu(params, reply_function):
     # Define menus
     main_menu_buttons = [
         ["🚀 Apply for Grant", "📊 Check Application Status"],
-        ["ℹ️ About Supagrants", "💡 Help", "💰 Submit a Grant"]
+        ["ℹ️ About Supagrants", "💡 Help", "Submit Grant"]
     ]
 
     # Command-based menu handling
@@ -104,8 +104,9 @@ async def handle_menu(params, reply_function):
         )
         return True
     
-    if content in ["💰 Submit a Grant", "/submit"]:
+    if content in ["Submit Grant", "/submit"]:
         #find the user's project id
+        logger.info(f"Getting applications for user {params['user']}")
         application = await get_applications(params['user'])
         
         # Convert application data to JSON-serializable format
@@ -115,7 +116,7 @@ async def handle_menu(params, reply_function):
         
         url = "https://supagrant-funder-production.up.railway.app/submit"
         response = requests.post(url, json=json_data)
-        
+        logger.info(f"Response from funder agent: {response.json()}")
         if response.status_code == 200:
             await reply_function(
                 """

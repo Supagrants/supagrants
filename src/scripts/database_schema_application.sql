@@ -3,7 +3,7 @@ CREATE TABLE ai.applications (
     name TEXT NOT NULL,
     content TEXT NOT NULL,
     meta_data JSONB,
-    embedding VECTOR(768),  -- gemini dim 768, openai dim 1536
+    embedding VECTOR(1536),  -- gemini dim 768, openai dim 1536
     document_type TEXT,
     usage JSONB NOT NULL DEFAULT '{}'::jsonb,
     created_at TIMESTAMP DEFAULT NOW(),
