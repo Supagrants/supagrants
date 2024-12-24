@@ -114,7 +114,7 @@ async def handle_menu(params, reply_function):
             "application": json.dumps(application, default=str)  # Use default=str to handle datetime
         }
         
-        url = "https://supagrant-funder-production.up.railway.app/submit"
+        url = "https://supagrant-funder-production.up.railway.app/submit/"
         response = requests.post(url, json=json_data)
         logger.info(f"Response from funder agent: {response.json()}")
         if response.status_code == 200:
